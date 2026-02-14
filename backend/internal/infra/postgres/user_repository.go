@@ -6,11 +6,12 @@ import (
 	"fmt"
 
 	"backend/internal/domain"
+	domainerrors "backend/internal/domain/errors"
 	"backend/internal/domain/repository"
+	infraerrors "backend/internal/infra/errors"
 
 	sq "github.com/Masterminds/squirrel"
 	"github.com/google/uuid"
-	"github.com/lib/pq"
 )
 
 type userRepository struct {
@@ -35,14 +36,7 @@ func (r *userRepository) Create(ctx context.Context, user *domain.User) error {
 	err = r.db.QueryRowContext(ctx, query, args...).
 		Scan(&user.ID, &user.CreatedAt, &user.UpdatedAt)
 	if err != nil {
-		if pqErr, ok := err.(*pq.Error); ok && pqErr.Code == "23505" {
-			return &repository.ConflictError{
-				EntityType: "User",
-				Field:      "oauth credentials",
-				Value:      fmt.Sprintf("%s:%s", user.OauthProvider, user.OauthID),
-			}
-		}
-		return fmt.Errorf("failed to create user: %w", err)
+		return infraerrors.WrapDatabaseError(err, "create_user")
 	}
 
 	return nil
@@ -71,9 +65,9 @@ func (r *userRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.Use
 	)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return nil, &repository.NotFoundError{EntityType: "User", ID: id}
+			return nil, domainerrors.NotFound("User", id)
 		}
-		return nil, fmt.Errorf("failed to get user: %w", err)
+		return nil, infraerrors.WrapDatabaseError(err, "get_user")
 	}
 
 	return &user, nil
@@ -104,10 +98,7 @@ func (r *userRepository) GetByOAuthID(ctx context.Context, provider domain.Oauth
 		&user.UpdatedAt,
 	)
 	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil, &repository.NotFoundError{EntityType: "User", ID: uuid.Nil}
-		}
-		return nil, fmt.Errorf("failed to get user by oauth: %w", err)
+		return nil, infraerrors.WrapDatabaseError(err, "get_user_by_oauth")
 	}
 
 	return &user, nil
@@ -135,10 +126,7 @@ func (r *userRepository) GetByEmail(ctx context.Context, email string) (*domain.
 		&user.UpdatedAt,
 	)
 	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil, &repository.NotFoundError{EntityType: "User", ID: uuid.Nil}
-		}
-		return nil, fmt.Errorf("failed to get user by email: %w", err)
+		return nil, infraerrors.WrapDatabaseError(err, "get_user_by_email")
 	}
 
 	return &user, nil
@@ -157,7 +145,7 @@ func (r *userRepository) GetByWorkspaceID(ctx context.Context, workspaceID uuid.
 
 	rows, err := r.db.QueryContext(ctx, query, args...)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get users by workspace: %w", err)
+		return nil, infraerrors.WrapDatabaseError(err, "get_users_by_workspace")
 	}
 	defer rows.Close()
 
@@ -175,13 +163,13 @@ func (r *userRepository) GetByWorkspaceID(ctx context.Context, workspaceID uuid.
 			&user.UpdatedAt,
 		)
 		if err != nil {
-			return nil, fmt.Errorf("failed to scan user: %w", err)
+			return nil, infraerrors.WrapDatabaseError(err, "scan_user")
 		}
 		users = append(users, &user)
 	}
 
 	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("error iterating rows: %w", err)
+		return nil, infraerrors.WrapDatabaseError(err, "iterate_users")
 	}
 
 	return users, nil
@@ -206,16 +194,9 @@ func (r *userRepository) Update(ctx context.Context, user *domain.User) error {
 	err = r.db.QueryRowContext(ctx, query, args...).Scan(&user.UpdatedAt)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return &repository.NotFoundError{EntityType: "User", ID: user.ID}
+			return domainerrors.NotFound("User", user.ID)
 		}
-		if pqErr, ok := err.(*pq.Error); ok && pqErr.Code == "23505" {
-			return &repository.ConflictError{
-				EntityType: "User",
-				Field:      "oauth credentials",
-				Value:      fmt.Sprintf("%s:%s", user.OauthProvider, user.OauthID),
-			}
-		}
-		return fmt.Errorf("failed to update user: %w", err)
+		return infraerrors.WrapDatabaseError(err, "update_user")
 	}
 
 	return nil
@@ -232,16 +213,16 @@ func (r *userRepository) Delete(ctx context.Context, id uuid.UUID) error {
 
 	result, err := r.db.ExecContext(ctx, query, args...)
 	if err != nil {
-		return fmt.Errorf("failed to delete user: %w", err)
+		return infraerrors.WrapDatabaseError(err, "delete_user")
 	}
 
 	rows, err := result.RowsAffected()
 	if err != nil {
-		return fmt.Errorf("failed to get rows affected: %w", err)
+		return infraerrors.WrapDatabaseError(err, "get_rows_affected")
 	}
 
 	if rows == 0 {
-		return &repository.NotFoundError{EntityType: "User", ID: id}
+		return domainerrors.NotFound("User", id)
 	}
 
 	return nil
@@ -266,7 +247,7 @@ func (r *userRepository) List(ctx context.Context, opts repository.ListOptions) 
 
 	rows, err := r.db.QueryContext(ctx, query, args...)
 	if err != nil {
-		return nil, fmt.Errorf("failed to list users: %w", err)
+		return nil, infraerrors.WrapDatabaseError(err, "list_users")
 	}
 	defer rows.Close()
 
@@ -284,13 +265,13 @@ func (r *userRepository) List(ctx context.Context, opts repository.ListOptions) 
 			&user.UpdatedAt,
 		)
 		if err != nil {
-			return nil, fmt.Errorf("failed to scan user: %w", err)
+			return nil, infraerrors.WrapDatabaseError(err, "scan_user")
 		}
 		users = append(users, &user)
 	}
 
 	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("error iterating rows: %w", err)
+		return nil, infraerrors.WrapDatabaseError(err, "iterate_users")
 	}
 
 	return users, nil

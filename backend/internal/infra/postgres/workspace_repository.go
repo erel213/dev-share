@@ -6,7 +6,9 @@ import (
 	"fmt"
 
 	"backend/internal/domain"
+	domainerrors "backend/internal/domain/errors"
 	"backend/internal/domain/repository"
+	infraerrors "backend/internal/infra/errors"
 
 	sq "github.com/Masterminds/squirrel"
 	"github.com/google/uuid"
@@ -34,7 +36,7 @@ func (r *workspaceRepository) Create(ctx context.Context, workspace *domain.Work
 	err = r.db.QueryRowContext(ctx, query, args...).
 		Scan(&workspace.ID, &workspace.CreatedAt, &workspace.UpdatedAt)
 	if err != nil {
-		return fmt.Errorf("failed to create workspace: %w", err)
+		return infraerrors.WrapDatabaseError(err, "create_workspace")
 	}
 
 	return nil
@@ -61,9 +63,9 @@ func (r *workspaceRepository) GetByID(ctx context.Context, id uuid.UUID) (*domai
 	)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return nil, &repository.NotFoundError{EntityType: "Workspace", ID: id}
+			return nil, domainerrors.NotFound("Workspace", id)
 		}
-		return nil, fmt.Errorf("failed to get workspace: %w", err)
+		return nil, infraerrors.WrapDatabaseError(err, "get_workspace")
 	}
 
 	return &workspace, nil
@@ -82,7 +84,7 @@ func (r *workspaceRepository) GetByAdminID(ctx context.Context, adminID uuid.UUI
 
 	rows, err := r.db.QueryContext(ctx, query, args...)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get workspaces by admin: %w", err)
+		return nil, infraerrors.WrapDatabaseError(err, "get_workspaces_by_admin")
 	}
 	defer rows.Close()
 
@@ -98,13 +100,13 @@ func (r *workspaceRepository) GetByAdminID(ctx context.Context, adminID uuid.UUI
 			&workspace.UpdatedAt,
 		)
 		if err != nil {
-			return nil, fmt.Errorf("failed to scan workspace: %w", err)
+			return nil, infraerrors.WrapDatabaseError(err, "scan_workspace")
 		}
 		workspaces = append(workspaces, &workspace)
 	}
 
 	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("error iterating rows: %w", err)
+		return nil, infraerrors.WrapDatabaseError(err, "iterate_workspaces")
 	}
 
 	return workspaces, nil
@@ -127,9 +129,9 @@ func (r *workspaceRepository) Update(ctx context.Context, workspace *domain.Work
 	err = r.db.QueryRowContext(ctx, query, args...).Scan(&workspace.UpdatedAt)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return &repository.NotFoundError{EntityType: "Workspace", ID: workspace.ID}
+			return domainerrors.NotFound("Workspace", workspace.ID)
 		}
-		return fmt.Errorf("failed to update workspace: %w", err)
+		return infraerrors.WrapDatabaseError(err, "update_workspace")
 	}
 
 	return nil
@@ -146,16 +148,16 @@ func (r *workspaceRepository) Delete(ctx context.Context, id uuid.UUID) error {
 
 	result, err := r.db.ExecContext(ctx, query, args...)
 	if err != nil {
-		return fmt.Errorf("failed to delete workspace: %w", err)
+		return infraerrors.WrapDatabaseError(err, "delete_workspace")
 	}
 
 	rows, err := result.RowsAffected()
 	if err != nil {
-		return fmt.Errorf("failed to get rows affected: %w", err)
+		return infraerrors.WrapDatabaseError(err, "get_rows_affected")
 	}
 
 	if rows == 0 {
-		return &repository.NotFoundError{EntityType: "Workspace", ID: id}
+		return domainerrors.NotFound("Workspace", id)
 	}
 
 	return nil
@@ -180,7 +182,7 @@ func (r *workspaceRepository) List(ctx context.Context, opts repository.ListOpti
 
 	rows, err := r.db.QueryContext(ctx, query, args...)
 	if err != nil {
-		return nil, fmt.Errorf("failed to list workspaces: %w", err)
+		return nil, infraerrors.WrapDatabaseError(err, "list_workspaces")
 	}
 	defer rows.Close()
 
@@ -196,13 +198,13 @@ func (r *workspaceRepository) List(ctx context.Context, opts repository.ListOpti
 			&workspace.UpdatedAt,
 		)
 		if err != nil {
-			return nil, fmt.Errorf("failed to scan workspace: %w", err)
+			return nil, infraerrors.WrapDatabaseError(err, "scan_workspace")
 		}
 		workspaces = append(workspaces, &workspace)
 	}
 
 	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("error iterating rows: %w", err)
+		return nil, infraerrors.WrapDatabaseError(err, "iterate_workspaces")
 	}
 
 	return workspaces, nil

@@ -6,7 +6,9 @@ import (
 	"fmt"
 
 	"backend/internal/domain"
+	domainerrors "backend/internal/domain/errors"
 	"backend/internal/domain/repository"
+	infraerrors "backend/internal/infra/errors"
 
 	sq "github.com/Masterminds/squirrel"
 	"github.com/google/uuid"
@@ -34,7 +36,7 @@ func (r *environmentRepository) Create(ctx context.Context, env *domain.Environm
 	err = r.db.QueryRowContext(ctx, query, args...).
 		Scan(&env.ID, &env.CreatedAt, &env.UpdatedAt)
 	if err != nil {
-		return fmt.Errorf("failed to create environment: %w", err)
+		return infraerrors.WrapDatabaseError(err, "create_environment")
 	}
 
 	return nil
@@ -63,9 +65,9 @@ func (r *environmentRepository) GetByID(ctx context.Context, id uuid.UUID) (*dom
 	)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return nil, &repository.NotFoundError{EntityType: "Environment", ID: id}
+			return nil, domainerrors.NotFound("Environment", id)
 		}
-		return nil, fmt.Errorf("failed to get environment: %w", err)
+		return nil, infraerrors.WrapDatabaseError(err, "get_environment")
 	}
 
 	return &env, nil
@@ -84,7 +86,7 @@ func (r *environmentRepository) GetByWorkspaceID(ctx context.Context, workspaceI
 
 	rows, err := r.db.QueryContext(ctx, query, args...)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get environments by workspace: %w", err)
+		return nil, infraerrors.WrapDatabaseError(err, "get_environments_by_workspace")
 	}
 	defer rows.Close()
 
@@ -102,13 +104,13 @@ func (r *environmentRepository) GetByWorkspaceID(ctx context.Context, workspaceI
 			&env.UpdatedAt,
 		)
 		if err != nil {
-			return nil, fmt.Errorf("failed to scan environment: %w", err)
+			return nil, infraerrors.WrapDatabaseError(err, "scan_environment")
 		}
 		environments = append(environments, &env)
 	}
 
 	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("error iterating rows: %w", err)
+		return nil, infraerrors.WrapDatabaseError(err, "iterate_environments")
 	}
 
 	return environments, nil
@@ -127,7 +129,7 @@ func (r *environmentRepository) GetByCreatedBy(ctx context.Context, userID uuid.
 
 	rows, err := r.db.QueryContext(ctx, query, args...)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get environments by creator: %w", err)
+		return nil, infraerrors.WrapDatabaseError(err, "get_environments_by_creator")
 	}
 	defer rows.Close()
 
@@ -145,13 +147,13 @@ func (r *environmentRepository) GetByCreatedBy(ctx context.Context, userID uuid.
 			&env.UpdatedAt,
 		)
 		if err != nil {
-			return nil, fmt.Errorf("failed to scan environment: %w", err)
+			return nil, infraerrors.WrapDatabaseError(err, "scan_environment")
 		}
 		environments = append(environments, &env)
 	}
 
 	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("error iterating rows: %w", err)
+		return nil, infraerrors.WrapDatabaseError(err, "iterate_environments")
 	}
 
 	return environments, nil
@@ -170,7 +172,7 @@ func (r *environmentRepository) GetByTemplateID(ctx context.Context, templateID 
 
 	rows, err := r.db.QueryContext(ctx, query, args...)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get environments by template: %w", err)
+		return nil, infraerrors.WrapDatabaseError(err, "get_environments_by_template")
 	}
 	defer rows.Close()
 
@@ -188,13 +190,13 @@ func (r *environmentRepository) GetByTemplateID(ctx context.Context, templateID 
 			&env.UpdatedAt,
 		)
 		if err != nil {
-			return nil, fmt.Errorf("failed to scan environment: %w", err)
+			return nil, infraerrors.WrapDatabaseError(err, "scan_environment")
 		}
 		environments = append(environments, &env)
 	}
 
 	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("error iterating rows: %w", err)
+		return nil, infraerrors.WrapDatabaseError(err, "iterate_environments")
 	}
 
 	return environments, nil
@@ -219,9 +221,9 @@ func (r *environmentRepository) Update(ctx context.Context, env *domain.Environm
 	err = r.db.QueryRowContext(ctx, query, args...).Scan(&env.UpdatedAt)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return &repository.NotFoundError{EntityType: "Environment", ID: env.ID}
+			return domainerrors.NotFound("Environment", env.ID)
 		}
-		return fmt.Errorf("failed to update environment: %w", err)
+		return infraerrors.WrapDatabaseError(err, "update_environment")
 	}
 
 	return nil
@@ -238,16 +240,16 @@ func (r *environmentRepository) Delete(ctx context.Context, id uuid.UUID) error 
 
 	result, err := r.db.ExecContext(ctx, query, args...)
 	if err != nil {
-		return fmt.Errorf("failed to delete environment: %w", err)
+		return infraerrors.WrapDatabaseError(err, "delete_environment")
 	}
 
 	rows, err := result.RowsAffected()
 	if err != nil {
-		return fmt.Errorf("failed to get rows affected: %w", err)
+		return infraerrors.WrapDatabaseError(err, "get_rows_affected")
 	}
 
 	if rows == 0 {
-		return &repository.NotFoundError{EntityType: "Environment", ID: id}
+		return domainerrors.NotFound("Environment", id)
 	}
 
 	return nil
@@ -272,7 +274,7 @@ func (r *environmentRepository) List(ctx context.Context, opts repository.ListOp
 
 	rows, err := r.db.QueryContext(ctx, query, args...)
 	if err != nil {
-		return nil, fmt.Errorf("failed to list environments: %w", err)
+		return nil, infraerrors.WrapDatabaseError(err, "list_environments")
 	}
 	defer rows.Close()
 
@@ -290,13 +292,13 @@ func (r *environmentRepository) List(ctx context.Context, opts repository.ListOp
 			&env.UpdatedAt,
 		)
 		if err != nil {
-			return nil, fmt.Errorf("failed to scan environment: %w", err)
+			return nil, infraerrors.WrapDatabaseError(err, "scan_environment")
 		}
 		environments = append(environments, &env)
 	}
 
 	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("error iterating rows: %w", err)
+		return nil, infraerrors.WrapDatabaseError(err, "iterate_environments")
 	}
 
 	return environments, nil
