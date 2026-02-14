@@ -2,9 +2,11 @@ package main
 
 import (
 	"log"
+	"log/slog"
 	"os"
 	"strconv"
 
+	handlererrors "backend/internal/handler/errors"
 	"backend/internal/infra/postgres"
 
 	"github.com/gofiber/fiber/v2"
@@ -13,6 +15,14 @@ import (
 )
 
 func main() {
+	// Initialize structured logging
+	slogger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
+		Level: slog.LevelInfo,
+	}))
+	slog.SetDefault(slogger)
+
+	slog.Info("starting dev-share backend")
+
 	// Database configuration from environment variables
 	dbConfig := postgres.Config{
 		Host:     getEnv("DB_HOST", "localhost"),
@@ -26,11 +36,12 @@ func main() {
 	// Initialize database connection
 	db, err := postgres.NewDB(dbConfig)
 	if err != nil {
-		log.Fatalf("Failed to connect to database: %v", err)
+		slog.Error("failed to connect to database", "error", err)
+		os.Exit(1)
 	}
 	defer db.Close()
 
-	log.Println("Successfully connected to database")
+	slog.Info("successfully connected to database")
 
 	// Initialize repositories
 	userRepo := postgres.NewUserRepository(db)
@@ -43,7 +54,8 @@ func main() {
 	_ = envRepo
 
 	app := fiber.New(fiber.Config{
-		AppName: "Dev-Share Backend",
+		AppName:      "Dev-Share Backend",
+		ErrorHandler: handlererrors.ErrorHandler(),
 	})
 
 	// Middleware
@@ -71,9 +83,10 @@ func main() {
 	// Get port from environment or default to 8080
 	port := getEnv("PORT", "8080")
 
-	log.Printf("Starting server on port %s", port)
+	slog.Info("starting server", "port", port)
 	if err := app.Listen(":" + port); err != nil {
-		log.Fatalf("Failed to start server: %v", err)
+		slog.Error("failed to start server", "error", err)
+		os.Exit(1)
 	}
 }
 

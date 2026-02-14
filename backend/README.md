@@ -8,6 +8,7 @@ Backend service for managing developer environments, enabling clients to provisi
 - **Web Framework**: [Fiber v2](https://github.com/gofiber/fiber) - Express-inspired HTTP framework
 - **Database Migrations**: [golang-migrate](https://github.com/golang-migrate/migrate) - Schema migration management
 - **Architecture**: Clean architecture with domain-driven design
+- **Error Handling**: Robust layered error system with structured logging and observability
 
 ## Getting Started
 
@@ -77,6 +78,58 @@ migrate -path internal/infra/migrations -database "postgresql://user:password@lo
 All migration files are located in `internal/infra/migrations/`. Each migration consists of two files:
 - `{version}_{description}.up.sql` - Applied when migrating up
 - `{version}_{description}.down.sql` - Applied when rolling back
+
+### Error Handling
+
+The error handling system is organized into layers:
+
+1. **Foundation Layer** (`pkg/errors`)
+   - Core `Error` type with metadata, severity levels, and error codes
+   - Smart stack trace capture (only for Error/Critical severity)
+   - Full `log/slog` integration for structured logging
+
+2. **Domain Layer** (`internal/domain/errors`)
+   - Domain-specific error constructors with entity context
+   - `NotFound(entityType, id)` - Entity not found errors
+   - `Conflict(entityType, field, value)` - Unique constraint violations
+   - `InvalidInput(field, reason)` - Validation errors
+
+3. **Infrastructure Layer** (`internal/infra/errors`)
+   - Database error mapping (`WrapDatabaseError`)
+   - Automatic PostgreSQL constraint violation detection
+   - Transaction and connection error utilities
+
+4. **HTTP Layer** (`internal/handler/errors`)
+   - Fiber error middleware for automatic error-to-HTTP conversion
+   - JSON error responses with proper status codes
+   - Structured error logging with request context
+
+#### Key Features
+
+- **Rich Context**: Every error includes metadata, timestamps, and severity levels
+- **Smart Stack Traces**: Captured only for unexpected errors (Error/Critical severity)
+- **Structured Logging**: Full integration with `log/slog` for JSON logging
+- **HTTP Integration**: Automatic error-to-HTTP response conversion with proper status codes
+- **PostgreSQL Intelligence**: Automatic constraint violation detection and classification
+- **Backward Compatible**: Existing code using old error types continues to work
+
+#### Error Response Format
+
+All HTTP errors return JSON in this format:
+```json
+{
+  "error": {
+    "code": "NOT_FOUND",
+    "message": "User not found: 123e4567-e89b-12d3-a456-426614174000",
+    "metadata": {
+      "entity_type": "User",
+      "entity_id": "123e4567-e89b-12d3-a456-426614174000"
+    }
+  }
+}
+```
+
+For detailed guidelines on using the error handling system, see `.claude/rules/error-handling.md`.
 
 ### API Endpoints
 
