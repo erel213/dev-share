@@ -1,5 +1,10 @@
 package repository
 
+import (
+	"backend/internal/domain/errors"
+	pkgerrors "backend/pkg/errors"
+)
+
 type ListOptions struct {
 	Limit  int
 	Offset int
@@ -7,15 +12,15 @@ type ListOptions struct {
 	Order  string // "ASC" or "DESC"
 }
 
-func (o *ListOptions) Validate() error {
+func (o *ListOptions) Validate() *pkgerrors.Error {
 	if o.Limit < 0 {
-		return ErrInvalidInput
+		return errors.ErrInvalidInput
 	}
 	if o.Offset < 0 {
-		return ErrInvalidInput
+		return errors.ErrInvalidInput
 	}
 	if o.Order != "" && o.Order != "ASC" && o.Order != "DESC" {
-		return ErrInvalidInput
+		return errors.ErrInvalidInput
 	}
 	return nil
 }

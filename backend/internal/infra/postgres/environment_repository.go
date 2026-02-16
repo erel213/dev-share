@@ -65,7 +65,7 @@ func (r *environmentRepository) GetByID(ctx context.Context, id uuid.UUID) (*dom
 	)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return nil, domainerrors.NotFound("Environment", id)
+			return nil, domainerrors.NotFound("Environment", id.String())
 		}
 		return nil, infraerrors.WrapDatabaseError(err, "get_environment")
 	}
@@ -221,7 +221,7 @@ func (r *environmentRepository) Update(ctx context.Context, env *domain.Environm
 	err = r.db.QueryRowContext(ctx, query, args...).Scan(&env.UpdatedAt)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return domainerrors.NotFound("Environment", env.ID)
+			return domainerrors.NotFound("Environment", env.ID.String())
 		}
 		return infraerrors.WrapDatabaseError(err, "update_environment")
 	}
@@ -249,7 +249,7 @@ func (r *environmentRepository) Delete(ctx context.Context, id uuid.UUID) error 
 	}
 
 	if rows == 0 {
-		return domainerrors.NotFound("Environment", id)
+		return domainerrors.NotFound("Environment", id.String())
 	}
 
 	return nil

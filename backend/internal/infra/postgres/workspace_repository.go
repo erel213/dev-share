@@ -63,7 +63,7 @@ func (r *workspaceRepository) GetByID(ctx context.Context, id uuid.UUID) (*domai
 	)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return nil, domainerrors.NotFound("Workspace", id)
+			return nil, domainerrors.NotFound("Workspace", id.String())
 		}
 		return nil, infraerrors.WrapDatabaseError(err, "get_workspace")
 	}
@@ -129,7 +129,7 @@ func (r *workspaceRepository) Update(ctx context.Context, workspace *domain.Work
 	err = r.db.QueryRowContext(ctx, query, args...).Scan(&workspace.UpdatedAt)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return domainerrors.NotFound("Workspace", workspace.ID)
+			return domainerrors.NotFound("Workspace", workspace.ID.String())
 		}
 		return infraerrors.WrapDatabaseError(err, "update_workspace")
 	}
@@ -157,7 +157,7 @@ func (r *workspaceRepository) Delete(ctx context.Context, id uuid.UUID) error {
 	}
 
 	if rows == 0 {
-		return domainerrors.NotFound("Workspace", id)
+		return domainerrors.NotFound("Workspace", id.String())
 	}
 
 	return nil

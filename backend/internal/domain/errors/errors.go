@@ -5,7 +5,6 @@ import (
 	"net/http"
 
 	pkgerrors "backend/pkg/errors"
-	"github.com/google/uuid"
 )
 
 // Sentinel errors for backward compatibility
@@ -19,13 +18,13 @@ var (
 )
 
 // NotFound creates a domain NotFound error with entity context
-func NotFound(entityType string, id uuid.UUID) *pkgerrors.Error {
+func NotFound(entityType string, id string) *pkgerrors.Error {
 	return pkgerrors.WithCode(
 		pkgerrors.CodeNotFound,
 		fmt.Sprintf("%s not found: %s", entityType, id),
 	).
 		WithMetadata("entity_type", entityType).
-		WithMetadata("entity_id", id.String()).
+		WithMetadata("entity_id", id).
 		WithHTTPStatus(http.StatusNotFound).
 		WithSeverity(pkgerrors.SeverityWarning) // Not found is expected, not critical
 }

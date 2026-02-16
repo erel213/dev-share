@@ -19,7 +19,7 @@ const (
 
 // WrapDatabaseError wraps database errors with appropriate categorization
 // operation should describe the database operation being performed (e.g., "create_user", "get_workspace")
-func WrapDatabaseError(err error, operation string) error {
+func WrapDatabaseError(err error, operation string) *pkgerrors.Error {
 	if err == nil {
 		return nil
 	}
@@ -94,7 +94,7 @@ func wrapPostgresError(pqErr *pq.Error, operation string) *pkgerrors.Error {
 }
 
 // WrapTransactionError wraps transaction-related errors
-func WrapTransactionError(err error, operation string) error {
+func WrapTransactionError(err error, operation string) *pkgerrors.Error {
 	if err == nil {
 		return nil
 	}

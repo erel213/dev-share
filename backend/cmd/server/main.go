@@ -6,7 +6,7 @@ import (
 	"os"
 	"strconv"
 
-	handlererrors "backend/internal/handler/errors"
+	handlererrors "backend/internal/application/errors"
 	"backend/internal/infra/postgres"
 
 	"github.com/gofiber/fiber/v2"
