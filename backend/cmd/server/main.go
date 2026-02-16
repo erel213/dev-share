@@ -6,7 +6,9 @@ import (
 	"os"
 	"strconv"
 
+	"backend/internal/application"
 	handlererrors "backend/internal/application/errors"
+	"backend/internal/infra/http/handlers"
 	"backend/internal/infra/postgres"
 
 	"github.com/gofiber/fiber/v2"
@@ -48,8 +50,13 @@ func main() {
 	workspaceRepo := postgres.NewWorkspaceRepository(db)
 	envRepo := postgres.NewEnvironmentRepository(db)
 
-	// TODO: Pass repositories to handlers when handler layer is built
-	_ = userRepo
+	// Initialize services
+	userService := application.NewUserService(userRepo)
+
+	// Initialize handlers
+	userHandler := handlers.NewUserHandler(userService)
+
+	// TODO: Pass workspace and environment repositories to handlers when implemented
 	_ = workspaceRepo
 	_ = envRepo
 
@@ -71,7 +78,7 @@ func main() {
 		})
 	})
 
-	// API routes placeholder
+	// API routes
 	api := app.Group("/api/v1")
 
 	api.Get("/", func(c *fiber.Ctx) error {
@@ -79,6 +86,9 @@ func main() {
 			"message": "Dev-Share API v1",
 		})
 	})
+
+	// User routes
+	api.Post("/users", userHandler.CreateUser)
 
 	// Get port from environment or default to 8080
 	port := getEnv("PORT", "8080")
