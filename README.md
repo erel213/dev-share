@@ -29,12 +29,22 @@ erDiagram
         TEXT description
         UUID created_by FK
         UUID workspace_id FK
-        UUID template_id
+        UUID template_id FK
+        TIMESTAMPTZ created_at
+        TIMESTAMPTZ updated_at
+    }
+    templates {
+        UUID id PK
+        VARCHAR name
+        UUID workspace_id FK
+        TEXT path
         TIMESTAMPTZ created_at
         TIMESTAMPTZ updated_at
     }
 
     workspaces ||--o{ users : "belongs to"
     workspaces ||--o{ environments : "contains"
+    workspaces ||--o{ templates : "owns"
     users ||--o{ environments : "creates"
+    templates ||--o{ environments : "applied to"
 ```
