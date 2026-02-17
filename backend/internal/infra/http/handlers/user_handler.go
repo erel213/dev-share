@@ -17,6 +17,10 @@ func NewUserHandler(userService application.UserService) *UserHandler {
 	}
 }
 
+func (h *UserHandler) RegisterRoutes(router fiber.Router) {
+	router.Post("/users", h.CreateUser)
+}
+
 // CreateUser handles POST /api/v1/users
 func (h *UserHandler) CreateUser(c *fiber.Ctx) error {
 	var request contracts.CreateLocalUser
