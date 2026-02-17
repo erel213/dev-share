@@ -9,6 +9,7 @@ import (
 	domainerrors "backend/internal/domain/errors"
 	"backend/internal/domain/repository"
 	infraerrors "backend/internal/infra/errors"
+	"backend/pkg/errors"
 
 	sq "github.com/Masterminds/squirrel"
 	"github.com/google/uuid"
@@ -22,7 +23,7 @@ func NewWorkspaceRepository(db *sql.DB) repository.WorkspaceRepository {
 	return &workspaceRepository{db: db}
 }
 
-func (r *workspaceRepository) Create(ctx context.Context, workspace *domain.Workspace) error {
+func (r *workspaceRepository) Create(ctx context.Context, workspace *domain.Workspace) *errors.Error {
 	query, args, err := StatementBuilder.
 		Insert("workspaces").
 		Columns("name", "description", "admin_id").
@@ -30,7 +31,7 @@ func (r *workspaceRepository) Create(ctx context.Context, workspace *domain.Work
 		Suffix("RETURNING id, created_at, updated_at").
 		ToSql()
 	if err != nil {
-		return fmt.Errorf("failed to build insert query: %w", err)
+		return errors.Wrap(err, "failed to build insert query")
 	}
 
 	err = r.db.QueryRowContext(ctx, query, args...).
@@ -42,14 +43,14 @@ func (r *workspaceRepository) Create(ctx context.Context, workspace *domain.Work
 	return nil
 }
 
-func (r *workspaceRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.Workspace, error) {
+func (r *workspaceRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.Workspace, *errors.Error) {
 	query, args, err := StatementBuilder.
 		Select("id", "name", "description", "admin_id", "created_at", "updated_at").
 		From("workspaces").
 		Where(sq.Eq{"id": id}).
 		ToSql()
 	if err != nil {
-		return nil, fmt.Errorf("failed to build select query: %w", err)
+		return nil, errors.Wrap(err, "failed to build select query")
 	}
 
 	var workspace domain.Workspace
@@ -71,7 +72,7 @@ func (r *workspaceRepository) GetByID(ctx context.Context, id uuid.UUID) (*domai
 	return &workspace, nil
 }
 
-func (r *workspaceRepository) GetByAdminID(ctx context.Context, adminID uuid.UUID) ([]*domain.Workspace, error) {
+func (r *workspaceRepository) GetByAdminID(ctx context.Context, adminID uuid.UUID) ([]*domain.Workspace, *errors.Error) {
 	query, args, err := StatementBuilder.
 		Select("id", "name", "description", "admin_id", "created_at", "updated_at").
 		From("workspaces").
@@ -79,7 +80,7 @@ func (r *workspaceRepository) GetByAdminID(ctx context.Context, adminID uuid.UUI
 		OrderBy("created_at DESC").
 		ToSql()
 	if err != nil {
-		return nil, fmt.Errorf("failed to build query: %w", err)
+		return nil, errors.Wrap(err, "failed to build query")
 	}
 
 	rows, err := r.db.QueryContext(ctx, query, args...)
@@ -112,7 +113,7 @@ func (r *workspaceRepository) GetByAdminID(ctx context.Context, adminID uuid.UUI
 	return workspaces, nil
 }
 
-func (r *workspaceRepository) Update(ctx context.Context, workspace *domain.Workspace) error {
+func (r *workspaceRepository) Update(ctx context.Context, workspace *domain.Workspace) *errors.Error {
 	query, args, err := StatementBuilder.
 		Update("workspaces").
 		Set("name", workspace.Name).
@@ -123,7 +124,7 @@ func (r *workspaceRepository) Update(ctx context.Context, workspace *domain.Work
 		Suffix("RETURNING updated_at").
 		ToSql()
 	if err != nil {
-		return fmt.Errorf("failed to build update query: %w", err)
+		return errors.Wrap(err, "failed to build update query")
 	}
 
 	err = r.db.QueryRowContext(ctx, query, args...).Scan(&workspace.UpdatedAt)
@@ -137,13 +138,13 @@ func (r *workspaceRepository) Update(ctx context.Context, workspace *domain.Work
 	return nil
 }
 
-func (r *workspaceRepository) Delete(ctx context.Context, id uuid.UUID) error {
+func (r *workspaceRepository) Delete(ctx context.Context, id uuid.UUID) *errors.Error {
 	query, args, err := StatementBuilder.
 		Delete("workspaces").
 		Where(sq.Eq{"id": id}).
 		ToSql()
 	if err != nil {
-		return fmt.Errorf("failed to build delete query: %w", err)
+		return errors.Wrap(err, "failed to build delete query")
 	}
 
 	result, err := r.db.ExecContext(ctx, query, args...)
@@ -163,7 +164,7 @@ func (r *workspaceRepository) Delete(ctx context.Context, id uuid.UUID) error {
 	return nil
 }
 
-func (r *workspaceRepository) List(ctx context.Context, opts repository.ListOptions) ([]*domain.Workspace, error) {
+func (r *workspaceRepository) List(ctx context.Context, opts repository.ListOptions) ([]*domain.Workspace, *errors.Error) {
 	opts.ApplyDefaults()
 	if err := opts.Validate(); err != nil {
 		return nil, err
@@ -177,7 +178,7 @@ func (r *workspaceRepository) List(ctx context.Context, opts repository.ListOpti
 		Offset(uint64(opts.Offset)).
 		ToSql()
 	if err != nil {
-		return nil, fmt.Errorf("failed to build list query: %w", err)
+		return nil, errors.Wrap(err, "failed to build list query")
 	}
 
 	rows, err := r.db.QueryContext(ctx, query, args...)
