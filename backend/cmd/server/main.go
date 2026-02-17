@@ -60,17 +60,14 @@ func main() {
 	slog.Info("validation service initialized")
 
 	// Initialize services
-	// fix this
 	userService := application.NewUserService(userRepo, validator)
+	workspaceService := application.NewWorkspaceService(workspaceRepo, validator)
 
 	// Initialize handlers
 	userHandler := handlers.NewUserHandler(userService)
+	workspaceHandler := handlers.NewWorkspaceHandler(workspaceService)
 
-	// TODO: Pass repositories and validator to services when service layer is built
-	_ = userRepo
-	_ = workspaceRepo
 	_ = envRepo
-	_ = validator
 
 	app := fiber.New(fiber.Config{
 		AppName:      "Dev-Share Backend",
@@ -99,8 +96,9 @@ func main() {
 		})
 	})
 
-	// User routes
-	api.Post("/users", userHandler.CreateUser)
+	// Register routes
+	userHandler.RegisterRoutes(api)
+	workspaceHandler.RegisterRoutes(api)
 
 	// Get port from environment or default to 8080
 	port := getEnv("PORT", "8080")
