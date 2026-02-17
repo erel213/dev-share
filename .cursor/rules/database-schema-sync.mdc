@@ -1,0 +1,52 @@
+---
+description: Sync the README.md database schema diagram when migrations change
+globs:
+  - "backend/internal/infra/migrations/**/*.up.sql"
+alwaysApply: false
+---
+
+# Database Schema Sync Rule
+
+Whenever a new migration file is created or an existing `.up.sql` migration file is modified in `backend/internal/infra/migrations/`, you **MUST** update the `## Database Schema` section in `README.md` at the project root.
+
+## What to Update
+
+After creating or modifying a migration, read **all** `*.up.sql` files in `backend/internal/infra/migrations/` (in version order) to reconstruct the full schema, then replace the Mermaid `erDiagram` block under `## Database Schema` in `README.md` with the updated diagram.
+
+## Mermaid ERD Conventions
+
+- Use `erDiagram` diagram type.
+- List every table as an entity block with all its columns and their SQL types.
+- Mark primary keys with `PK` and foreign keys with `FK`.
+- Represent relationships using Mermaid cardinality notation:
+  - `||--o{` — one-to-many (required on the "one" side)
+  - `||--||` — one-to-one
+  - `}o--o{` — many-to-many
+- Add a short quoted label on each relationship line describing the semantic (e.g., `"contains"`, `"creates"`).
+- Do **not** include index definitions or check constraints in the diagram — only columns and foreign-key relationships.
+
+## Example
+
+Given a new `templates` table that belongs to a `workspace`, add:
+
+```mermaid
+erDiagram
+    ...existing tables...
+    templates {
+        UUID id PK
+        VARCHAR name
+        TEXT content
+        UUID workspace_id FK
+        TIMESTAMPTZ created_at
+        TIMESTAMPTZ updated_at
+    }
+
+    workspaces ||--o{ templates : "owns"
+```
+
+## Checklist
+
+- [ ] Read all `*.up.sql` files in version order.
+- [ ] Identify new/changed/removed tables and columns.
+- [ ] Update the `erDiagram` block in `README.md` — replace the full block, do not append.
+- [ ] Verify all foreign-key relationships are represented as diagram edges.
