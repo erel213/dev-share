@@ -1,5 +1,5 @@
 ---
-description: Sync the README.md database schema diagram when migrations change
+description: Sync the migrations README.md database schema diagram when migrations change
 globs:
   - "backend/internal/infra/migrations/**/*.up.sql"
 alwaysApply: false
@@ -7,11 +7,11 @@ alwaysApply: false
 
 # Database Schema Sync Rule
 
-Whenever a new migration file is created or an existing `.up.sql` migration file is modified in `backend/internal/infra/migrations/`, you **MUST** update the `## Database Schema` section in `README.md` at the project root.
+Whenever a new migration file is created or an existing `.up.sql` migration file is modified in `backend/internal/infra/migrations/`, you **MUST** update the `## Database Schema` section in `backend/internal/infra/migrations/README.md`.
 
 ## What to Update
 
-After creating or modifying a migration, read **all** `*.up.sql` files in `backend/internal/infra/migrations/` (in version order) to reconstruct the full schema, then replace the Mermaid `erDiagram` block under `## Database Schema` in `README.md` with the updated diagram.
+After creating or modifying a migration, read **all** `*.up.sql` files in `backend/internal/infra/migrations/` (in version order) to reconstruct the full schema, then replace the Mermaid `erDiagram` block under `## Database Schema` in `backend/internal/infra/migrations/README.md` with the updated diagram.
 
 ## Mermaid ERD Conventions
 
@@ -48,5 +48,5 @@ erDiagram
 
 - [ ] Read all `*.up.sql` files in version order.
 - [ ] Identify new/changed/removed tables and columns.
-- [ ] Update the `erDiagram` block in `README.md` — replace the full block, do not append.
+- [ ] Update the `erDiagram` block in `backend/internal/infra/migrations/README.md` — replace the full block, do not append.
 - [ ] Verify all foreign-key relationships are represented as diagram edges.
