@@ -10,6 +10,7 @@ import (
 	handlererrors "backend/internal/application/errors"
 	"backend/internal/infra/http/handlers"
 	"backend/internal/infra/postgres"
+	"backend/pkg/validation"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/logger"
@@ -50,15 +51,26 @@ func main() {
 	workspaceRepo := postgres.NewWorkspaceRepository(db)
 	envRepo := postgres.NewEnvironmentRepository(db)
 
+	// Initialize validation service
+	validator := validation.New()
+	if err := validator.RegisterDefaultCustomValidations(); err != nil {
+		slog.Error("failed to register custom validations", "error", err)
+		os.Exit(1)
+	}
+	slog.Info("validation service initialized")
+
 	// Initialize services
-	userService := application.NewUserService(userRepo)
+	// fix this
+	userService := application.NewUserService(userRepo, validator)
 
 	// Initialize handlers
 	userHandler := handlers.NewUserHandler(userService)
 
-	// TODO: Pass workspace and environment repositories to handlers when implemented
+	// TODO: Pass repositories and validator to services when service layer is built
+	_ = userRepo
 	_ = workspaceRepo
 	_ = envRepo
+	_ = validator
 
 	app := fiber.New(fiber.Config{
 		AppName:      "Dev-Share Backend",

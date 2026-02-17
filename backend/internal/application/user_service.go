@@ -6,18 +6,19 @@ import (
 	"backend/internal/domain/repository"
 	"backend/pkg/contracts"
 	"backend/pkg/errors"
+	"backend/pkg/validation"
 	"context"
-
-	"github.com/google/uuid"
 )
 
 type UserService struct {
 	userRepository repository.UserRepository
+	validator      *validation.Service
 }
 
-func NewUserService(userRepo repository.UserRepository) UserService {
+func NewUserService(userRepo repository.UserRepository, validator *validation.Service) UserService {
 	return UserService{
 		userRepository: userRepo,
+		validator:      validator,
 	}
 }
 
@@ -47,6 +48,7 @@ func (s UserService) CreateLocalUser(ctx context.Context, request contracts.Crea
 		return domain.UserAggregate{}, err
 	}
 
+	// Persist user
 	err = s.userRepository.Create(ctx, user)
 	if err != nil {
 		return domain.UserAggregate{}, err
