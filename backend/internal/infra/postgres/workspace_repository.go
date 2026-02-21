@@ -140,7 +140,8 @@ func (r *workspaceRepository) Update(ctx context.Context, workspace *domain.Work
 
 func (r *workspaceRepository) Delete(ctx context.Context, id uuid.UUID) *errors.Error {
 	query, args, err := StatementBuilder.
-		Delete("workspaces").
+		Update("workspaces").
+		Set("deleted_at", sq.Expr("CURRENT_TIMESTAMP")).
 		Where(sq.Eq{"id": id}).
 		ToSql()
 	if err != nil {
