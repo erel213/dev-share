@@ -28,6 +28,10 @@ func (s UserService) CreateLocalUser(ctx context.Context, request contracts.Crea
 		user domain.UserAggregate
 	)
 
+	if err = s.validator.Validate(request); err != nil {
+		return domain.UserAggregate{}, err
+	}
+
 	// Check if user already exists with this email
 	_, err = s.userRepository.GetByEmail(ctx, request.Email)
 	if err != nil && err.HTTPStatus() != domainerrors.ErrNotFound.HTTPStatus() {
