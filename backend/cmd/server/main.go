@@ -9,7 +9,9 @@ import (
 	"backend/internal/application"
 	handlererrors "backend/internal/application/errors"
 	"backend/internal/infra/http/handlers"
+	"backend/internal/infra/http/middleware"
 	"backend/internal/infra/postgres"
+	"backend/pkg/jwt"
 	"backend/pkg/validation"
 
 	"github.com/gofiber/fiber/v2"
@@ -59,6 +61,14 @@ func main() {
 	}
 	slog.Info("validation service initialized")
 
+	// Initialize JWT service
+	jwtService, err := jwt.NewService()
+	if err != nil {
+		slog.Error("failed to initialize JWT service", "error", err)
+		os.Exit(1)
+	}
+	slog.Info("JWT service initialized")
+
 	// Initialize services
 	userService := application.NewUserService(userRepo, validator)
 	workspaceService := application.NewWorkspaceService(workspaceRepo, validator)
@@ -96,9 +106,11 @@ func main() {
 		})
 	})
 
-	// Register routes
+	// Public: user registration does not require authentication
 	userHandler.RegisterRoutes(api)
-	workspaceHandler.RegisterRoutes(api)
+
+	protected := api.Group("", middleware.RequireAuth(jwtService))
+	workspaceHandler.RegisterRoutes(protected)
 
 	// Get port from environment or default to 8080
 	port := getEnv("PORT", "8080")
