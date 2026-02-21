@@ -1,6 +1,8 @@
 package integration_tests
 
 import (
+	"backend/internal/infra/postgres"
+	"database/sql"
 	"fmt"
 	"net/http"
 	"os"
@@ -13,8 +15,9 @@ import (
 )
 
 var (
-	BaseURL    string
-	HTTPClient *http.Client
+	BaseURL      string
+	HTTPClient   *http.Client
+	DbConnection *sql.DB
 )
 
 func TestMain(m *testing.M) {
@@ -41,6 +44,20 @@ func TestMain(m *testing.M) {
 			fmt.Fprintf(os.Stderr, "failed to rollback migrations: %v\n", err)
 		}
 		migrator.Close()
+	}
+	dbConfig := postgres.Config{
+		Host: getEnv("TEST_DB_HOST", "localhost"),
+		Port: 5432,
+		User: getEnv("TEST_DB_USER",
+			"postgres"),
+		Password: getEnv("TEST_DB_PASSWORD", "postgres"),
+		DBName:   getEnv("TEST_DB_NAME", "devshare"),
+		SSLMode:  getEnv("TEST_DB_SSL_MODE", "disable"),
+	}
+	DbConnection, err = postgres.NewDB(dbConfig)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "failed to connect to database: %v\n", err)
+		os.Exit(1)
 	}
 
 	os.Exit(code)

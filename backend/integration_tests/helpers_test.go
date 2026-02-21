@@ -33,6 +33,13 @@ type ErrorResponse struct {
 	Metadata map[string]interface{} `json:"metadata,omitempty"`
 }
 
+// Teardown
+
+func TearDownWorkspace(t *testing.T, workspaceID uuid.UUID) {
+	t.Helper()
+	DbConnection.Exec("DELETE FROM workspaces WHERE id = $1", workspaceID)
+}
+
 // Workspace helpers
 
 func CreateWorkspace(t *testing.T, name, description string, adminID uuid.UUID) (*WorkspaceResponse, int) {

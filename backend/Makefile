@@ -1,4 +1,4 @@
-.PHONY: help test test-integration test-workspace test-user test-unit test-all clean
+.PHONY: help test test-integration test-workspace test-user test-admin test-unit test-all clean db-migrate-create
 
 help: ## Show this help message
 	@echo 'Usage: make [target]'
@@ -24,6 +24,12 @@ test-user: ## Run user integration tests only
 test-user-v: ## Run user integration tests with verbose output
 	@./scripts/run-integration-tests.sh -v user
 
+test-admin: ## Run admin initialization integration tests only
+	@./scripts/run-integration-tests.sh admin
+
+test-admin-v: ## Run admin initialization integration tests with verbose output
+	@./scripts/run-integration-tests.sh -v admin
+
 test-unit: ## Run unit tests
 	@go test ./internal/... ./pkg/... -v
 
@@ -43,6 +49,9 @@ docker-logs: ## Show backend test logs
 
 clean: docker-down ## Clean up test environment and temporary files
 	@echo "Cleaning up..."
+
+db-migrate-create: ## Create a new migration. Usage: make db-migrate-create name=<migration_name>
+	@./scripts/db-migrate-create.sh $(name)
 
 build: ## Build the backend
 	@go build -o bin/server ./cmd/server

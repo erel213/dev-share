@@ -48,6 +48,7 @@ func (r *workspaceRepository) GetByID(ctx context.Context, id uuid.UUID) (*domai
 		Select("id", "name", "description", "admin_id", "created_at", "updated_at").
 		From("workspaces").
 		Where(sq.Eq{"id": id}).
+		Where("deleted_at IS NULL").
 		ToSql()
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to build select query")
@@ -77,6 +78,7 @@ func (r *workspaceRepository) GetByAdminID(ctx context.Context, adminID uuid.UUI
 		Select("id", "name", "description", "admin_id", "created_at", "updated_at").
 		From("workspaces").
 		Where(sq.Eq{"admin_id": adminID}).
+		Where("deleted_at IS NULL").
 		OrderBy("created_at DESC").
 		ToSql()
 	if err != nil {
@@ -140,7 +142,8 @@ func (r *workspaceRepository) Update(ctx context.Context, workspace *domain.Work
 
 func (r *workspaceRepository) Delete(ctx context.Context, id uuid.UUID) *errors.Error {
 	query, args, err := StatementBuilder.
-		Delete("workspaces").
+		Update("workspaces").
+		Set("deleted_at", sq.Expr("CURRENT_TIMESTAMP")).
 		Where(sq.Eq{"id": id}).
 		ToSql()
 	if err != nil {
@@ -173,6 +176,7 @@ func (r *workspaceRepository) List(ctx context.Context, opts repository.ListOpti
 	query, args, err := StatementBuilder.
 		Select("id", "name", "description", "admin_id", "created_at", "updated_at").
 		From("workspaces").
+		Where("deleted_at IS NULL").
 		OrderBy(fmt.Sprintf("%s %s", opts.SortBy, opts.Order)).
 		Limit(uint64(opts.Limit)).
 		Offset(uint64(opts.Offset)).
