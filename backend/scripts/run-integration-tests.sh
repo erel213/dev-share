@@ -12,7 +12,7 @@ NC='\033[0m' # No Color
 # Configuration
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
-COMPOSE_FILE="$PROJECT_ROOT/docker-compose.test.yml"
+COMPOSE_FILE="$PROJECT_ROOT/docker-compose.yml"
 TEST_TIMEOUT="${TEST_TIMEOUT:-120s}"
 
 # Function to print colored output
@@ -181,8 +181,8 @@ else
 fi
 
 # Wait for services to be healthy
-wait_for_service "postgres-test"
-wait_for_service "backend-test"
+wait_for_service "postgres"
+wait_for_service "backend"
 
 echo ""
 print_success "Test environment is ready"
@@ -222,7 +222,7 @@ echo ""
 if [ $EXIT_CODE -ne 0 ]; then
     print_warning "Showing backend logs:"
     echo ""
-    docker compose -f "$COMPOSE_FILE" logs backend-test --tail=50
+    docker compose -f "$COMPOSE_FILE" logs backend --tail=50
 fi
 
 exit $EXIT_CODE

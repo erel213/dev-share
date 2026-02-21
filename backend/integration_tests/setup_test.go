@@ -18,8 +18,8 @@ var (
 )
 
 func TestMain(m *testing.M) {
-	BaseURL = getEnv("TEST_BASE_URL", "http://localhost:8081")
-	dbDSN := getEnv("TEST_DB_DSN", "postgres://devshare:devshare_password@localhost:5433/devshare_test?sslmode=disable")
+	BaseURL = getEnv("TEST_BASE_URL", "http://localhost:8080")
+	dbDSN := getEnv("TEST_DB_DSN", "postgres://devshare:devshare_password@localhost:5432/devshare?sslmode=disable")
 
 	HTTPClient = &http.Client{Timeout: 10 * time.Second}
 

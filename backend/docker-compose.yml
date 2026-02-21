@@ -33,6 +33,7 @@ services:
       - DB_USER=devshare
       - DB_PASSWORD=devshare_password
       - DB_NAME=devshare
+      - JWT_SECRET=your_jwt_secretyour_jwt_secretyour_jwt_secretyour_jwt_secret
     depends_on:
       postgres:
         condition: service_healthy
