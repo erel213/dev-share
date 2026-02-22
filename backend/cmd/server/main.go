@@ -73,8 +73,10 @@ func main() {
 	userService := application.NewUserService(userRepo, validator)
 	workspaceService := application.NewWorkspaceService(workspaceRepo, validator)
 
+	cookieCfg := jwt.DefaultCookieConfig()
+
 	// Initialize handlers
-	userHandler := handlers.NewUserHandler(userService)
+	userHandler := handlers.NewUserHandler(userService, jwtService, cookieCfg)
 	workspaceHandler := handlers.NewWorkspaceHandler(workspaceService)
 
 	_ = envRepo
@@ -109,7 +111,7 @@ func main() {
 	// Public: user registration does not require authentication
 	userHandler.RegisterRoutes(api)
 
-	protected := api.Group("", middleware.RequireAuth(jwtService))
+	protected := api.Group("", middleware.RequireAuth(jwtService, cookieCfg))
 	workspaceHandler.RegisterRoutes(protected)
 
 	// Get port from environment or default to 8080

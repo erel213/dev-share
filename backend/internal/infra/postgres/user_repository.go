@@ -340,3 +340,21 @@ func (r *userRepository) List(ctx context.Context, opts repository.ListOptions) 
 
 	return users, nil
 }
+
+func (r *userRepository) Count(ctx context.Context) (int, *pkgerrors.Error) {
+	query, args, err := StatementBuilder.
+		Select("COUNT(*)").
+		From("users").
+		ToSql()
+	if err != nil {
+		return 0, infraerrors.WrapDatabaseError(err, "count_users")
+	}
+
+	var count int
+	err = r.db.QueryRowContext(ctx, query, args...).Scan(&count)
+	if err != nil {
+		return 0, infraerrors.WrapDatabaseError(err, "count_users")
+	}
+
+	return count, nil
+}

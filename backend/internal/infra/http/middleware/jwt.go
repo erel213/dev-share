@@ -2,7 +2,7 @@ package middleware
 
 import (
 	"context"
-	"strings"
+	"time"
 
 	domainerrors "backend/internal/domain/errors"
 	"backend/pkg/jwt"
@@ -14,23 +14,13 @@ type contextKeyType string
 
 const ClaimsKey contextKeyType = "claims"
 
-// RequireAuth returns a Fiber middleware that validates the Bearer JWT token
-// from the Authorization header and stores the claims in context locals.
-func RequireAuth(jwtService *jwt.Service) fiber.Handler {
+// RequireAuth returns a Fiber middleware that validates the JWT token
+// from the cookie defined in cfg and stores the claims in context locals.
+func RequireAuth(jwtService *jwt.Service, cfg jwt.CookieConfig) fiber.Handler {
 	return func(c *fiber.Ctx) error {
-		authHeader := c.Get(fiber.HeaderAuthorization)
-		if authHeader == "" {
-			return domainerrors.Unauthorized("missing authorization header")
-		}
-
-		const bearerPrefix = "Bearer "
-		if !strings.HasPrefix(authHeader, bearerPrefix) {
-			return domainerrors.Unauthorized("authorization header must use Bearer scheme")
-		}
-
-		tokenString := strings.TrimPrefix(authHeader, bearerPrefix)
+		tokenString := c.Cookies(cfg.Name)
 		if tokenString == "" {
-			return domainerrors.Unauthorized("bearer token is empty")
+			return domainerrors.Unauthorized("missing auth cookie")
 		}
 
 		claims, err := jwtService.ValidateToken(tokenString)
@@ -41,6 +31,37 @@ func RequireAuth(jwtService *jwt.Service) fiber.Handler {
 		c.Locals(ClaimsKey, claims)
 		return c.Next()
 	}
+}
+
+// SetTokenCookie writes the JWT token as a cookie on the response using the
+// settings from cfg.
+func SetTokenCookie(c *fiber.Ctx, token string, cfg jwt.CookieConfig) {
+	c.Cookie(&fiber.Cookie{
+		Name:     cfg.Name,
+		Value:    token,
+		Path:     cfg.Path,
+		Domain:   cfg.Domain,
+		MaxAge:   cfg.MaxAge,
+		Expires:  cfg.Expires,
+		Secure:   cfg.Secure,
+		HTTPOnly: cfg.HTTPOnly,
+		SameSite: cfg.SameSite,
+	})
+}
+
+// ClearTokenCookie expires the JWT cookie immediately, effectively logging the
+// user out on the client side.
+func ClearTokenCookie(c *fiber.Ctx, cfg jwt.CookieConfig) {
+	c.Cookie(&fiber.Cookie{
+		Name:     cfg.Name,
+		Path:     cfg.Path,
+		Domain:   cfg.Domain,
+		MaxAge:   -1,
+		Expires:  time.Unix(0, 0),
+		Secure:   cfg.Secure,
+		HTTPOnly: cfg.HTTPOnly,
+		SameSite: cfg.SameSite,
+	})
 }
 
 // GetClaims retrieves the JWT claims stored by RequireAuth from the Fiber context.

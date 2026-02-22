@@ -18,4 +18,5 @@ type UserRepository interface {
 	Update(ctx context.Context, user domain.UserAggregate) *errors.Error
 	Delete(ctx context.Context, id uuid.UUID) *errors.Error
 	List(ctx context.Context, opts ListOptions) ([]*domain.UserAggregate, *errors.Error)
+	Count(ctx context.Context) (int, *errors.Error)
 }
