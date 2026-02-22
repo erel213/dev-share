@@ -29,7 +29,7 @@ func (s WorkspaceService) CreateWorkspace(ctx context.Context, request contracts
 		return nil, err
 	}
 
-	workspace := domain.NewWorkspace(request.Name, request.Description, request.AdminID)
+	workspace := domain.NewWorkspace(request.Name, request.Description, &request.AdminID)
 
 	if err := s.workspaceRepository.Create(ctx, workspace); err != nil {
 		return nil, err

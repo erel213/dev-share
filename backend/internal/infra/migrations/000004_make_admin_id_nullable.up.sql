@@ -1,0 +1,2 @@
+ALTER TABLE workspaces
+ALTER COLUMN admin_id DROP NOT NULL;
