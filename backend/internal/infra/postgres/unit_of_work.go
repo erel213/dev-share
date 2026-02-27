@@ -1,10 +1,10 @@
 package postgres
 
 import (
+	"context"
 	"database/sql"
 
 	"backend/internal/application/handlers"
-	"backend/internal/domain/repository"
 	"backend/pkg/errors"
 )
 
@@ -13,6 +13,12 @@ type UnitOfWork struct {
 	tx     *sql.Tx
 	depth  int
 	failed bool
+}
+
+type Querier interface {
+	ExecContext(ctx context.Context, query string, args ...interface{}) (sql.Result, error)
+	QueryContext(ctx context.Context, query string, args ...interface{}) (*sql.Rows, error)
+	QueryRowContext(ctx context.Context, query string, args ...interface{}) *sql.Row
 }
 
 func NewUnitOfWork(db *sql.DB) handlers.UnitOfWork {
@@ -77,7 +83,7 @@ func (u *UnitOfWork) doRollback() *errors.Error {
 	return nil
 }
 
-func (u *UnitOfWork) Querier() repository.Querier {
+func (u *UnitOfWork) Querier() Querier {
 	if u.tx != nil {
 		return u.tx
 	}
