@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 
-	"backend/internal/application/handlers"
 	"backend/pkg/errors"
 )
 
@@ -21,7 +20,7 @@ type Querier interface {
 	QueryRowContext(ctx context.Context, query string, args ...interface{}) *sql.Row
 }
 
-func NewUnitOfWork(db *sql.DB) handlers.UnitOfWork {
+func NewUnitOfWork(db *sql.DB) *UnitOfWork {
 	return &UnitOfWork{db: db}
 }
 
