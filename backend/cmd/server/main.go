@@ -69,15 +69,22 @@ func main() {
 	}
 	slog.Info("JWT service initialized")
 
+	// UoW factory — creates a fresh UnitOfWork per request
+	uowFactory := func() apphandlers.UnitOfWork {
+		return postgres.NewUnitOfWork(db)
+	}
+
 	// Initialize services
 	userService := application.NewUserService(userRepo, validator)
 	workspaceService := application.NewWorkspaceService(workspaceRepo, validator)
+	adminService := application.NewAdminService(userRepo, workspaceRepo, validator)
 
 	cookieCfg := jwt.DefaultCookieConfig()
 
 	// Initialize handlers
-	userHandler := handlers.NewUserHandler(userService, jwtService, cookieCfg)
-	workspaceHandler := handlers.NewWorkspaceHandler(workspaceService)
+	userHandler := handlers.NewUserHandler(userService, uowFactory)
+	workspaceHandler := handlers.NewWorkspaceHandler(workspaceService, uowFactory)
+	adminHandler := handlers.NewAdminHandler(adminService, uowFactory)
 
 	_ = envRepo
 
