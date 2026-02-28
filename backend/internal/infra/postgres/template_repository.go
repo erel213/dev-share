@@ -26,16 +26,14 @@ func NewTemplateRepository(uow *UnitOfWork) repository.TemplateRepository {
 func (r *templateRepository) Create(ctx context.Context, template domain.Template) *errors.Error {
 	query, args, err := StatementBuilder.
 		Insert("templates").
-		Columns("name", "workspace_id", "path").
-		Values(template.Name, template.WorkspaceID, template.Path).
-		Suffix("RETURNING id, created_at, updated_at").
+		Columns("id", "name", "workspace_id", "path").
+		Values(template.ID, template.Name, template.WorkspaceID, template.Path).
 		ToSql()
 	if err != nil {
 		return errors.Wrap(err, "failed to build insert query")
 	}
 
-	err = r.uow.Querier().QueryRowContext(ctx, query, args...).
-		Scan(&template.ID, &template.CreatedAt, &template.UpdatedAt)
+	_, err = r.uow.Querier().ExecContext(ctx, query, args...)
 	if err != nil {
 		return infraerrors.WrapDatabaseError(err, "create_template")
 	}

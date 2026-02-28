@@ -20,10 +20,18 @@ func ErrorHandler() func(*fiber.Ctx, error) error {
 		// Convert to application error
 		var appErr *pkgerrors.Error
 		if !errors.As(err, &appErr) {
-			// Unknown error - wrap it with stack trace
-			appErr = pkgerrors.Wrap(err, "internal server error").
-				WithHTTPStatus(fiber.StatusInternalServerError).
-				WithSeverity(pkgerrors.SeverityError)
+			// Handle fiber's built-in error type (e.g. fiber.NewError in handlers)
+			var fiberErr *fiber.Error
+			if errors.As(err, &fiberErr) {
+				appErr = pkgerrors.WithCode(pkgerrors.CodeInvalidInput, fiberErr.Message).
+					WithHTTPStatus(fiberErr.Code).
+					WithSeverity(pkgerrors.SeverityWarning)
+			} else {
+				// Unknown error - wrap it with stack trace
+				appErr = pkgerrors.Wrap(err, "internal server error").
+					WithHTTPStatus(fiber.StatusInternalServerError).
+					WithSeverity(pkgerrors.SeverityError)
+			}
 		}
 
 		// Log error with structured context

@@ -1,5 +1,5 @@
 CREATE TABLE IF NOT EXISTS templates (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id UUID PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
     workspace_id UUID NOT NULL,
     path TEXT NOT NULL,

@@ -26,7 +26,7 @@ type (
 	ListTemplates struct {
 		Limit  int    `json:"limit" validate:"omitempty,min=1,max=100"`
 		Offset int    `json:"offset" validate:"omitempty,min=0"`
-		SortBy string `json:"sort_by" validate:"omitempty,oneof=name created_at updated_at"`
+		SortBy string `json:"sort_by" query:"sort_by" validate:"omitempty,oneof=name created_at updated_at"`
 		Order  string `json:"order" validate:"omitempty,oneof=ASC DESC"`
 	}
 
