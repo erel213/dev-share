@@ -18,3 +18,7 @@ func (f *repositoryFactory) CreateUserRepository(uow apphandlers.UnitOfWork) rep
 func (f *repositoryFactory) CreateWorkspaceRepository(uow apphandlers.UnitOfWork) repository.WorkspaceRepository {
 	return NewWorkspaceRepository(uow.(*UnitOfWork))
 }
+
+func (f *repositoryFactory) CreateTemplateRepository(uow apphandlers.UnitOfWork) repository.TemplateRepository {
+	return NewTemplateRepository(uow.(*UnitOfWork))
+}
