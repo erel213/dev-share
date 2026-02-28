@@ -3,6 +3,7 @@ package integration_tests
 import (
 	"net/http"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 )
@@ -193,6 +194,9 @@ func TestUpdateWorkspace_Success(t *testing.T) {
 	}
 	adminID := uuid.New()
 	created, _ := CreateWorkspace(t, auth, "Original Name", "Original Description", adminID)
+
+	// SQLite CURRENT_TIMESTAMP has second-level precision; wait to ensure a distinct updated_at.
+	time.Sleep(1 * time.Second)
 
 	updated, status := UpdateWorkspace(t, auth, created.ID, "Updated Name", "Updated Description")
 
