@@ -30,6 +30,9 @@ WORKDIR /root/
 # Copy the binary from builder
 COPY --from=builder /app/main .
 
+# Copy migration files
+COPY --from=builder /app/internal/infra/migrations/sqlite ./internal/infra/migrations/sqlite
+
 # Expose port
 EXPOSE 8080
 
