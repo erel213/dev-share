@@ -44,6 +44,7 @@ TEST_SUITE:
     workspace   Run workspace integration tests only
     user        Run user integration tests only
     admin       Run admin initialization integration tests only
+    template    Run template integration tests only
 
 OPTIONS:
     -h, --help              Show this help message
@@ -124,7 +125,7 @@ while [[ $# -gt 0 ]]; do
             TEST_TIMEOUT="$2"
             shift 2
             ;;
-        all|workspace|user|admin)
+        all|workspace|user|admin|template)
             TEST_SUITE="$1"
             shift
             ;;
@@ -155,6 +156,11 @@ case $TEST_SUITE in
         TEST_PATTERN="./integration_tests/admin_init_test.go"
         TEST_FILES="./integration_tests/admin_init_test.go ./integration_tests/setup_test.go ./integration_tests/helpers_test.go"
         TEST_NAME="Admin initialization integration tests"
+        ;;
+    template)
+        TEST_PATTERN="./integration_tests/template_test.go"
+        TEST_FILES="./integration_tests/template_test.go ./integration_tests/setup_test.go ./integration_tests/helpers_test.go"
+        TEST_NAME="Template integration tests"
         ;;
     *)
         print_error "Invalid test suite: $TEST_SUITE"

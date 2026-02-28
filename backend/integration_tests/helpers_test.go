@@ -285,6 +285,173 @@ func ReadErrorResponse(t *testing.T, resp *http.Response) *ErrorResponse {
 	return &errResp
 }
 
+// Template helpers
+
+type TemplateResponse struct {
+	ID          uuid.UUID `json:"id"`
+	Name        string    `json:"name"`
+	WorkspaceID uuid.UUID `json:"workspace_id"`
+	Path        string    `json:"path"`
+	CreatedAt   time.Time `json:"created_at"`
+	UpdatedAt   time.Time `json:"updated_at"`
+}
+
+func CreateTemplate(t *testing.T, auth AuthContext, name string, workspaceID uuid.UUID, path string) (*TemplateResponse, int) {
+	t.Helper()
+
+	payload := map[string]interface{}{
+		"name":         name,
+		"workspace_id": workspaceID,
+		"path":         path,
+	}
+
+	body, _ := json.Marshal(payload)
+	req, _ := http.NewRequest(http.MethodPost, BaseURL+"/api/v1/templates", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	addAuth(t, req, auth)
+
+	resp, err := HTTPClient.Do(req)
+	if err != nil {
+		t.Fatalf("failed to create template: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusCreated {
+		var template TemplateResponse
+		if err := json.NewDecoder(resp.Body).Decode(&template); err != nil {
+			t.Fatalf("failed to decode template response: %v", err)
+		}
+		return &template, resp.StatusCode
+	}
+
+	return nil, resp.StatusCode
+}
+
+func GetTemplate(t *testing.T, auth AuthContext, id uuid.UUID) (*TemplateResponse, int) {
+	t.Helper()
+
+	req, _ := http.NewRequest(http.MethodGet, fmt.Sprintf("%s/api/v1/templates/%s", BaseURL, id), nil)
+	addAuth(t, req, auth)
+
+	resp, err := HTTPClient.Do(req)
+	if err != nil {
+		t.Fatalf("failed to get template: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusOK {
+		var template TemplateResponse
+		if err := json.NewDecoder(resp.Body).Decode(&template); err != nil {
+			t.Fatalf("failed to decode template response: %v", err)
+		}
+		return &template, resp.StatusCode
+	}
+
+	return nil, resp.StatusCode
+}
+
+func GetTemplatesByWorkspace(t *testing.T, auth AuthContext, workspaceID uuid.UUID) ([]*TemplateResponse, int) {
+	t.Helper()
+
+	req, _ := http.NewRequest(http.MethodGet, fmt.Sprintf("%s/api/v1/templates/workspace/%s", BaseURL, workspaceID), nil)
+	addAuth(t, req, auth)
+
+	resp, err := HTTPClient.Do(req)
+	if err != nil {
+		t.Fatalf("failed to get templates by workspace: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusOK {
+		var templates []*TemplateResponse
+		if err := json.NewDecoder(resp.Body).Decode(&templates); err != nil {
+			t.Fatalf("failed to decode templates response: %v", err)
+		}
+		return templates, resp.StatusCode
+	}
+
+	return nil, resp.StatusCode
+}
+
+func UpdateTemplate(t *testing.T, auth AuthContext, id uuid.UUID, name, path string) (*TemplateResponse, int) {
+	t.Helper()
+
+	payload := map[string]interface{}{}
+	if name != "" {
+		payload["name"] = name
+	}
+	if path != "" {
+		payload["path"] = path
+	}
+
+	body, _ := json.Marshal(payload)
+	req, _ := http.NewRequest(http.MethodPut, fmt.Sprintf("%s/api/v1/templates/%s", BaseURL, id), bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	addAuth(t, req, auth)
+
+	resp, err := HTTPClient.Do(req)
+	if err != nil {
+		t.Fatalf("failed to update template: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusOK {
+		var template TemplateResponse
+		if err := json.NewDecoder(resp.Body).Decode(&template); err != nil {
+			t.Fatalf("failed to decode template response: %v", err)
+		}
+		return &template, resp.StatusCode
+	}
+
+	return nil, resp.StatusCode
+}
+
+func DeleteTemplate(t *testing.T, auth AuthContext, id uuid.UUID) int {
+	t.Helper()
+
+	req, _ := http.NewRequest(http.MethodDelete, fmt.Sprintf("%s/api/v1/templates/%s", BaseURL, id), nil)
+	addAuth(t, req, auth)
+
+	resp, err := HTTPClient.Do(req)
+	if err != nil {
+		t.Fatalf("failed to delete template: %v", err)
+	}
+	defer resp.Body.Close()
+
+	return resp.StatusCode
+}
+
+func ListTemplates(t *testing.T, auth AuthContext, limit, offset int, sortBy, order string) ([]*TemplateResponse, int) {
+	t.Helper()
+
+	url := fmt.Sprintf("%s/api/v1/templates?limit=%d&offset=%d", BaseURL, limit, offset)
+	if sortBy != "" {
+		url += "&sort_by=" + sortBy
+	}
+	if order != "" {
+		url += "&order=" + order
+	}
+
+	req, _ := http.NewRequest(http.MethodGet, url, nil)
+	addAuth(t, req, auth)
+
+	resp, err := HTTPClient.Do(req)
+	if err != nil {
+		t.Fatalf("failed to list templates: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusOK {
+		var templates []*TemplateResponse
+		if err := json.NewDecoder(resp.Body).Decode(&templates); err != nil {
+			t.Fatalf("failed to decode templates response: %v", err)
+		}
+		return templates, resp.StatusCode
+	}
+
+	return nil, resp.StatusCode
+}
+
 // Admin helpers
 
 type AdminInitResponse struct {

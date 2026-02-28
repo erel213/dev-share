@@ -17,5 +17,6 @@ type (
 	RepositoryFactory interface {
 		CreateUserRepository(uow UnitOfWork) repository.UserRepository
 		CreateWorkspaceRepository(uow UnitOfWork) repository.WorkspaceRepository
+		CreateTemplateRepository(uow UnitOfWork) repository.TemplateRepository
 	}
 )

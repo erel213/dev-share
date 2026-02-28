@@ -30,6 +30,12 @@ test-admin: ## Run admin initialization integration tests only
 test-admin-v: ## Run admin initialization integration tests with verbose output
 	@./scripts/run-integration-tests.sh -v admin
 
+test-template: ## Run template integration tests only
+	@./scripts/run-integration-tests.sh template
+
+test-template-v: ## Run template integration tests with verbose output
+	@./scripts/run-integration-tests.sh -v template
+
 test-unit: ## Run unit tests
 	@go test ./internal/... ./pkg/... -v
 
