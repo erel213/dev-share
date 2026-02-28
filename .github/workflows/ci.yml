@@ -1,0 +1,71 @@
+name: CI
+
+on:
+  pull_request:
+
+jobs:
+  unit-tests:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: backend/go.mod
+          cache-dependency-path: backend/go.sum
+
+      - name: Run unit tests
+        run: go test ./internal/... ./pkg/... -v
+
+  integration-tests:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: backend/go.mod
+          cache-dependency-path: backend/go.sum
+
+      - name: Start test services
+        run: docker compose -f docker-compose.yml up -d --build
+
+      - name: Wait for backend to be healthy
+        run: |
+          echo "Waiting for backend to be ready..."
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:8080/health > /dev/null 2>&1; then
+              echo "Backend is healthy after ${i} attempts"
+              exit 0
+            fi
+            echo "Attempt $i/30: backend not ready, retrying in 3s..."
+            sleep 3
+          done
+          echo "Backend failed to become healthy after 30 attempts"
+          docker compose -f docker-compose.yml logs
+          exit 1
+
+      - name: Run integration tests
+        env:
+          JWT_SECRET: your_jwt_secretyour_jwt_secretyour_jwt_secretyour_jwt_secret
+        run: go test ./integration_tests/... -v -timeout 120s
+
+      - name: Show service logs on failure
+        if: failure()
+        run: docker compose -f docker-compose.yml logs
+
+      - name: Stop test services
+        if: always()
+        run: docker compose -f docker-compose.yml down -v
