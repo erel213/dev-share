@@ -9,6 +9,7 @@ erDiagram
         UUID admin_id
         TIMESTAMPTZ created_at
         TIMESTAMPTZ updated_at
+        TIMESTAMPTZ deleted_at
     }
     users {
         UUID id PK
