@@ -12,7 +12,6 @@ NC='\033[0m' # No Color
 # Configuration
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
-COMPOSE_FILE="$PROJECT_ROOT/docker-compose.yml"
 TEST_TIMEOUT="${TEST_TIMEOUT:-120s}"
 
 # Function to print colored output
@@ -38,6 +37,7 @@ usage() {
 Usage: $(basename "$0") [OPTIONS] [TEST_SUITE]
 
 Run integration tests for the dev-share backend.
+The backend server starts in-process (no Docker required).
 
 TEST_SUITE:
     all         Run all integration tests (default)
@@ -49,59 +49,19 @@ TEST_SUITE:
 OPTIONS:
     -h, --help              Show this help message
     -v, --verbose           Enable verbose test output
-    -k, --keep-running      Keep containers running after tests
-    -s, --skip-build        Skip rebuilding Docker images
     -t, --timeout DURATION  Test timeout (default: 120s)
 
 EXAMPLES:
     $(basename "$0")                    # Run all tests
     $(basename "$0") workspace          # Run workspace tests only
     $(basename "$0") -v user            # Run user tests with verbose output
-    $(basename "$0") -k all             # Run all tests and keep containers running
 
 EOF
     exit 0
 }
 
-# Function to cleanup
-cleanup() {
-    if [ "$KEEP_RUNNING" != "true" ]; then
-        print_info "Stopping test environment..."
-        docker compose -f "$COMPOSE_FILE" down -v 2>/dev/null || true
-        print_success "Test environment stopped"
-    else
-        print_warning "Containers kept running (use -k flag)"
-        print_info "To stop manually: docker compose -f $COMPOSE_FILE down"
-    fi
-}
-
-# Function to wait for service health
-wait_for_service() {
-    local service_name=$1
-    local max_attempts=30
-    local attempt=1
-
-    print_info "Waiting for $service_name to be healthy..."
-
-    while [ $attempt -le $max_attempts ]; do
-        if docker compose -f "$COMPOSE_FILE" ps | grep "$service_name" | grep -q "healthy"; then
-            print_success "$service_name is healthy"
-            return 0
-        fi
-
-        echo -n "."
-        sleep 2
-        attempt=$((attempt + 1))
-    done
-
-    print_error "$service_name failed to become healthy after $max_attempts attempts"
-    return 1
-}
-
 # Parse command line arguments
 VERBOSE=""
-KEEP_RUNNING="false"
-SKIP_BUILD="false"
 TEST_SUITE="all"
 
 while [[ $# -gt 0 ]]; do
@@ -111,14 +71,6 @@ while [[ $# -gt 0 ]]; do
             ;;
         -v|--verbose)
             VERBOSE="-v"
-            shift
-            ;;
-        -k|--keep-running)
-            KEEP_RUNNING="true"
-            shift
-            ;;
-        -s|--skip-build)
-            SKIP_BUILD="true"
             shift
             ;;
         -t|--timeout)
@@ -143,17 +95,14 @@ case $TEST_SUITE in
         TEST_NAME="All integration tests"
         ;;
     workspace)
-        TEST_PATTERN="./integration_tests/workspace_test.go"
         TEST_FILES="./integration_tests/workspace_test.go ./integration_tests/setup_test.go ./integration_tests/helpers_test.go"
         TEST_NAME="Workspace integration tests"
         ;;
     user)
-        TEST_PATTERN="./integration_tests/user_test.go"
         TEST_FILES="./integration_tests/user_test.go ./integration_tests/setup_test.go ./integration_tests/helpers_test.go"
         TEST_NAME="User integration tests"
         ;;
     admin)
-        TEST_PATTERN="./integration_tests/admin_init_test.go"
         TEST_FILES="./integration_tests/admin_init_test.go ./integration_tests/setup_test.go ./integration_tests/helpers_test.go"
         TEST_NAME="Admin initialization integration tests"
         ;;
@@ -168,50 +117,21 @@ case $TEST_SUITE in
         ;;
 esac
 
-# Set trap to cleanup on exit
-trap cleanup EXIT INT TERM
-
 # Main execution
 print_info "Starting integration tests: $TEST_NAME"
 echo ""
 
-# Check if docker compose is available
-if ! command -v docker &> /dev/null; then
-    print_error "Docker is not installed or not in PATH"
-    exit 1
-fi
-
 # Navigate to project root
 cd "$PROJECT_ROOT"
-
-# Start test environment
-print_info "Starting test environment..."
-if [ "$SKIP_BUILD" = "true" ]; then
-    docker compose -f "$COMPOSE_FILE" up -d
-else
-    docker compose -f "$COMPOSE_FILE" up -d --build
-fi
-
-# Wait for services to be healthy
-wait_for_service "postgres"
-wait_for_service "backend"
-
-echo ""
-print_success "Test environment is ready"
-echo ""
 
 # Run tests
 print_info "Running $TEST_NAME..."
 echo ""
 
-# Export JWT_SECRET so tests can generate tokens matching the backend's config.
-# This must match the JWT_SECRET set for the backend service in docker-compose.yml.
-export JWT_SECRET="${JWT_SECRET:-your_jwt_secretyour_jwt_secretyour_jwt_secretyour_jwt_secret}"
+EXIT_CODE=0
 
 if [ "$TEST_SUITE" = "all" ]; then
-    # Run all tests using the package pattern
-    if go test $TEST_PATTERN $VERBOSE -timeout "$TEST_TIMEOUT"; then
-        EXIT_CODE=0
+    if go test $TEST_PATTERN $VERBOSE -timeout "$TEST_TIMEOUT" -count=1; then
         echo ""
         print_success "All tests passed! ✓"
     else
@@ -220,9 +140,7 @@ if [ "$TEST_SUITE" = "all" ]; then
         print_error "Some tests failed! ✗"
     fi
 else
-    # Run specific test file with required dependencies
-    if go test $TEST_FILES $VERBOSE -timeout "$TEST_TIMEOUT"; then
-        EXIT_CODE=0
+    if go test $TEST_FILES $VERBOSE -timeout "$TEST_TIMEOUT" -count=1; then
         echo ""
         print_success "Tests passed! ✓"
     else
@@ -230,15 +148,6 @@ else
         echo ""
         print_error "Tests failed! ✗"
     fi
-fi
-
-echo ""
-
-# Show logs on failure
-if [ $EXIT_CODE -ne 0 ]; then
-    print_warning "Showing backend logs:"
-    echo ""
-    docker compose -f "$COMPOSE_FILE" logs backend --tail=50
 fi
 
 exit $EXIT_CODE

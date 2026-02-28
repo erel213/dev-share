@@ -44,20 +44,23 @@ type AuthContext struct {
 
 func TearDownWorkspace(t *testing.T, workspaceName string) {
 	t.Helper()
-	DbConnection.Exec("DELETE FROM workspaces WHERE name = $1", workspaceName)
+	DbConnection.Exec("DELETE FROM workspaces WHERE name = ?", workspaceName)
 }
 
 // GetWorkspaceFromDB fetches a workspace directly from the DB, bypassing HTTP auth.
 func GetWorkspaceFromDB(t *testing.T, id uuid.UUID) *WorkspaceResponse {
 	t.Helper()
 	var w WorkspaceResponse
+	var createdAtStr, updatedAtStr string
 	err := DbConnection.QueryRow(
-		"SELECT id, name, description, admin_id, created_at, updated_at FROM workspaces WHERE id = $1",
+		"SELECT id, name, description, admin_id, created_at, updated_at FROM workspaces WHERE id = ?",
 		id,
-	).Scan(&w.ID, &w.Name, &w.Description, &w.AdminID, &w.CreatedAt, &w.UpdatedAt)
+	).Scan(&w.ID, &w.Name, &w.Description, &w.AdminID, &createdAtStr, &updatedAtStr)
 	if err != nil {
 		t.Fatalf("GetWorkspaceFromDB: %v", err)
 	}
+	w.CreatedAt, _ = time.Parse("2006-01-02 15:04:05", createdAtStr)
+	w.UpdatedAt, _ = time.Parse("2006-01-02 15:04:05", updatedAtStr)
 	return &w
 }
 

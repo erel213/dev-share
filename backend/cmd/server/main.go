@@ -1,22 +1,23 @@
 package main
 
 import (
-	"log"
 	"log/slog"
 	"os"
-	"strconv"
 
 	"backend/internal/application"
 	handlererrors "backend/internal/application/errors"
 	"backend/internal/infra/http/handlers"
 	"backend/internal/infra/http/middleware"
-	"backend/internal/infra/postgres"
+	"backend/internal/infra/sqlite"
 	"backend/pkg/jwt"
 	"backend/pkg/validation"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/logger"
 	"github.com/gofiber/fiber/v2/middleware/recover"
+	"github.com/golang-migrate/migrate/v4"
+	_ "github.com/golang-migrate/migrate/v4/database/sqlite"
+	_ "github.com/golang-migrate/migrate/v4/source/file"
 )
 
 func main() {
@@ -29,17 +30,12 @@ func main() {
 	slog.Info("starting dev-share backend")
 
 	// Database configuration from environment variables
-	dbConfig := postgres.Config{
-		Host:     getEnv("DB_HOST", "localhost"),
-		Port:     getEnvInt("DB_PORT", 5432),
-		User:     getEnv("DB_USER", "postgres"),
-		Password: getEnv("DB_PASSWORD", "postgres"),
-		DBName:   getEnv("DB_NAME", "devshare"),
-		SSLMode:  getEnv("DB_SSL_MODE", "disable"),
+	dbConfig := sqlite.Config{
+		FilePath: getEnv("DB_FILE_PATH", "./devshare.db"),
 	}
 
 	// Initialize database connection
-	db, err := postgres.NewDB(dbConfig)
+	db, err := sqlite.NewDB(dbConfig)
 	if err != nil {
 		slog.Error("failed to connect to database", "error", err)
 		os.Exit(1)
@@ -47,6 +43,23 @@ func main() {
 	defer db.Close()
 
 	slog.Info("successfully connected to database")
+
+	// Run migrations
+	// TODO: Consider moving the logic for running migrations to onboarding package
+	migrationsPath := getEnv("MIGRATIONS_PATH", "internal/infra/migrations/sqlite")
+	m, err := migrate.New(
+		"file://"+migrationsPath,
+		"sqlite://"+dbConfig.FilePath,
+	)
+	if err != nil {
+		slog.Error("migration init failed", "error", err)
+		os.Exit(1)
+	}
+	if err := m.Up(); err != nil && err != migrate.ErrNoChange {
+		slog.Error("migration failed", "error", err)
+		os.Exit(1)
+	}
+	slog.Info("migrations applied")
 
 	// Initialize validation service
 	validator := validation.New()
@@ -65,8 +78,8 @@ func main() {
 	slog.Info("JWT service initialized")
 
 	// Infrastructure factories
-	uowFactory := postgres.NewUnitOfWorkFactory(db)
-	repoFactory := postgres.NewRepositoryFactory()
+	uowFactory := sqlite.NewUnitOfWorkFactory(db)
+	repoFactory := sqlite.NewRepositoryFactory()
 
 	// Application-layer service factory
 	serviceFactory := application.NewServiceFactory(uowFactory, repoFactory, validator)
@@ -128,20 +141,6 @@ func main() {
 func getEnv(key, defaultValue string) string {
 	value := os.Getenv(key)
 	if value == "" {
-		return defaultValue
-	}
-	return value
-}
-
-// getEnvInt retrieves an environment variable as an integer or returns a default value
-func getEnvInt(key string, defaultValue int) int {
-	valueStr := os.Getenv(key)
-	if valueStr == "" {
-		return defaultValue
-	}
-	value, err := strconv.Atoi(valueStr)
-	if err != nil {
-		log.Printf("Invalid integer value for %s: %v, using default %d", key, err, defaultValue)
 		return defaultValue
 	}
 	return value
