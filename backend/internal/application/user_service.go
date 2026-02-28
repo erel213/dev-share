@@ -1,6 +1,7 @@
 package application
 
 import (
+	"backend/internal/application/handlers"
 	"backend/internal/domain"
 	domainerrors "backend/internal/domain/errors"
 	"backend/internal/domain/repository"
@@ -22,7 +23,11 @@ func NewUserService(userRepo repository.UserRepository, validator *validation.Se
 	}
 }
 
-func (s UserService) CreateLocalUser(ctx context.Context, request contracts.CreateLocalUser) (domain.UserAggregate, *errors.Error) {
+// CreateLocalUser creates a new local (password-based) user.
+// It accepts a UnitOfWork so it can participate in a caller-managed transaction.
+// The caller is responsible for deferring uow.Rollback() when this method is
+// the outermost transaction boundary.
+func (s UserService) CreateLocalUser(ctx context.Context, uow handlers.UnitOfWork, request contracts.CreateLocalUser) (domain.UserAggregate, *errors.Error) {
 	var (
 		err  *errors.Error
 		user domain.UserAggregate
@@ -52,10 +57,19 @@ func (s UserService) CreateLocalUser(ctx context.Context, request contracts.Crea
 		return domain.UserAggregate{}, err
 	}
 
+	if beginErr := uow.Begin(); beginErr != nil {
+		return domain.UserAggregate{}, beginErr
+	}
+
 	// Persist user
 	err = s.userRepository.Create(ctx, user)
 	if err != nil {
 		return domain.UserAggregate{}, err
 	}
+
+	if commitErr := uow.Commit(); commitErr != nil {
+		return domain.UserAggregate{}, commitErr
+	}
+
 	return user, nil
 }

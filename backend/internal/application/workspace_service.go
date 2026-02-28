@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	"backend/internal/application/handlers"
 	"backend/internal/domain"
 	"backend/internal/domain/repository"
 	"backend/pkg/contracts"
@@ -24,10 +25,15 @@ func NewWorkspaceService(workspaceRepo repository.WorkspaceRepository, validator
 }
 
 // CreateWorkspace creates a new workspace with the provided details
-func (s WorkspaceService) CreateWorkspace(ctx context.Context, request contracts.CreateWorkspace) (*domain.Workspace, *errors.Error) {
+func (s WorkspaceService) CreateWorkspace(ctx context.Context, uow handlers.UnitOfWork, request contracts.CreateWorkspace) (*domain.Workspace, *errors.Error) {
 	if err := s.validator.Validate(request); err != nil {
 		return nil, err
 	}
+
+	if err := uow.Begin(); err != nil {
+		return nil, err
+	}
+	defer uow.Rollback()
 
 	workspace := domain.NewWorkspace(request.Name, request.Description, &request.AdminID)
 
@@ -35,7 +41,7 @@ func (s WorkspaceService) CreateWorkspace(ctx context.Context, request contracts
 		return nil, err
 	}
 
-	return workspace, nil
+	return workspace, uow.Commit()
 }
 
 // GetWorkspace retrieves a workspace by ID
@@ -57,18 +63,21 @@ func (s WorkspaceService) GetWorkspacesByAdmin(ctx context.Context, request cont
 }
 
 // UpdateWorkspace updates an existing workspace
-func (s WorkspaceService) UpdateWorkspace(ctx context.Context, request contracts.UpdateWorkspace) (*domain.Workspace, *errors.Error) {
+func (s WorkspaceService) UpdateWorkspace(ctx context.Context, uow handlers.UnitOfWork, request contracts.UpdateWorkspace) (*domain.Workspace, *errors.Error) {
 	if err := s.validator.Validate(request); err != nil {
 		return nil, err
 	}
 
-	// Get existing workspace
+	if err := uow.Begin(); err != nil {
+		return nil, err
+	}
+	defer uow.Rollback()
+
 	workspace, err := s.workspaceRepository.GetByID(ctx, request.ID)
 	if err != nil {
 		return nil, err
 	}
 
-	// Update non-empty fields
 	if request.Name != "" {
 		workspace.Name = request.Name
 	}
@@ -76,24 +85,31 @@ func (s WorkspaceService) UpdateWorkspace(ctx context.Context, request contracts
 		workspace.Description = request.Description
 	}
 
-	// Update timestamp
 	workspace.UpdatedAt = time.Now()
 
-	// Save changes
 	if err := s.workspaceRepository.Update(ctx, workspace); err != nil {
 		return nil, err
 	}
 
-	return workspace, nil
+	return workspace, uow.Commit()
 }
 
 // DeleteWorkspace deletes a workspace by ID
-func (s WorkspaceService) DeleteWorkspace(ctx context.Context, request contracts.DeleteWorkspace) *errors.Error {
+func (s WorkspaceService) DeleteWorkspace(ctx context.Context, uow handlers.UnitOfWork, request contracts.DeleteWorkspace) *errors.Error {
 	if err := s.validator.Validate(request); err != nil {
 		return err
 	}
 
-	return s.workspaceRepository.Delete(ctx, request.ID)
+	if err := uow.Begin(); err != nil {
+		return err
+	}
+	defer uow.Rollback()
+
+	if err := s.workspaceRepository.Delete(ctx, request.ID); err != nil {
+		return err
+	}
+
+	return uow.Commit()
 }
 
 // ListWorkspaces retrieves a paginated list of workspaces
@@ -109,10 +125,8 @@ func (s WorkspaceService) ListWorkspaces(ctx context.Context, request contracts.
 		Order:  request.Order,
 	}
 
-	// Apply defaults
 	opts.ApplyDefaults()
 
-	// Validate options
 	if err := opts.Validate(); err != nil {
 		return nil, err
 	}

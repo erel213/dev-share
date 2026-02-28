@@ -15,11 +15,13 @@ import (
 )
 
 type environmentRepository struct {
-	db *sql.DB
+	uow *UnitOfWork
 }
 
-func NewEnvironmentRepository(db *sql.DB) repository.EnvironmentRepository {
-	return &environmentRepository{db: db}
+func NewEnvironmentRepository(uow *UnitOfWork) repository.EnvironmentRepository {
+	return &environmentRepository{
+		uow: uow,
+	}
 }
 
 func (r *environmentRepository) Create(ctx context.Context, env *domain.Environment) error {
@@ -33,7 +35,7 @@ func (r *environmentRepository) Create(ctx context.Context, env *domain.Environm
 		return fmt.Errorf("failed to build insert query: %w", err)
 	}
 
-	err = r.db.QueryRowContext(ctx, query, args...).
+	err = r.uow.Querier().QueryRowContext(ctx, query, args...).
 		Scan(&env.ID, &env.CreatedAt, &env.UpdatedAt)
 	if err != nil {
 		return infraerrors.WrapDatabaseError(err, "create_environment")
@@ -53,7 +55,7 @@ func (r *environmentRepository) GetByID(ctx context.Context, id uuid.UUID) (*dom
 	}
 
 	var env domain.Environment
-	err = r.db.QueryRowContext(ctx, query, args...).Scan(
+	err = r.uow.Querier().QueryRowContext(ctx, query, args...).Scan(
 		&env.ID,
 		&env.Name,
 		&env.CreatedAt,
@@ -84,7 +86,7 @@ func (r *environmentRepository) GetByWorkspaceID(ctx context.Context, workspaceI
 		return nil, fmt.Errorf("failed to build query: %w", err)
 	}
 
-	rows, err := r.db.QueryContext(ctx, query, args...)
+	rows, err := r.uow.Querier().QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, infraerrors.WrapDatabaseError(err, "get_environments_by_workspace")
 	}
@@ -127,7 +129,7 @@ func (r *environmentRepository) GetByCreatedBy(ctx context.Context, userID uuid.
 		return nil, fmt.Errorf("failed to build query: %w", err)
 	}
 
-	rows, err := r.db.QueryContext(ctx, query, args...)
+	rows, err := r.uow.Querier().QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, infraerrors.WrapDatabaseError(err, "get_environments_by_creator")
 	}
@@ -170,7 +172,7 @@ func (r *environmentRepository) GetByTemplateID(ctx context.Context, templateID 
 		return nil, fmt.Errorf("failed to build query: %w", err)
 	}
 
-	rows, err := r.db.QueryContext(ctx, query, args...)
+	rows, err := r.uow.Querier().QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, infraerrors.WrapDatabaseError(err, "get_environments_by_template")
 	}
@@ -218,7 +220,7 @@ func (r *environmentRepository) Update(ctx context.Context, env *domain.Environm
 		return fmt.Errorf("failed to build update query: %w", err)
 	}
 
-	err = r.db.QueryRowContext(ctx, query, args...).Scan(&env.UpdatedAt)
+	err = r.uow.Querier().QueryRowContext(ctx, query, args...).Scan(&env.UpdatedAt)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return domainerrors.NotFound("Environment", env.ID.String())
@@ -238,7 +240,7 @@ func (r *environmentRepository) Delete(ctx context.Context, id uuid.UUID) error 
 		return fmt.Errorf("failed to build delete query: %w", err)
 	}
 
-	result, err := r.db.ExecContext(ctx, query, args...)
+	result, err := r.uow.Querier().ExecContext(ctx, query, args...)
 	if err != nil {
 		return infraerrors.WrapDatabaseError(err, "delete_environment")
 	}
@@ -272,7 +274,7 @@ func (r *environmentRepository) List(ctx context.Context, opts repository.ListOp
 		return nil, fmt.Errorf("failed to build list query: %w", err)
 	}
 
-	rows, err := r.db.QueryContext(ctx, query, args...)
+	rows, err := r.uow.Querier().QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, infraerrors.WrapDatabaseError(err, "list_environments")
 	}

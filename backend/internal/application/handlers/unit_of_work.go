@@ -19,4 +19,3 @@ type (
 		CreateWorkspaceRepository(uow UnitOfWork) repository.WorkspaceRepository
 	}
 )
-

@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"backend/internal/application"
+	apphandlers "backend/internal/application/handlers"
 	"backend/internal/infra/http/middleware"
 	"backend/pkg/contracts"
 
@@ -10,12 +11,12 @@ import (
 )
 
 type WorkspaceHandler struct {
-	workspaceService application.WorkspaceService
+	serviceFactory func() (application.WorkspaceService, apphandlers.UnitOfWork)
 }
 
-func NewWorkspaceHandler(workspaceService application.WorkspaceService) *WorkspaceHandler {
+func NewWorkspaceHandler(serviceFactory func() (application.WorkspaceService, apphandlers.UnitOfWork)) *WorkspaceHandler {
 	return &WorkspaceHandler{
-		workspaceService: workspaceService,
+		serviceFactory: serviceFactory,
 	}
 }
 
@@ -36,7 +37,8 @@ func (h *WorkspaceHandler) CreateWorkspace(c *fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusBadRequest, "Invalid request body")
 	}
 
-	workspace, serviceErr := h.workspaceService.CreateWorkspace(middleware.ContextWithClaims(c), request)
+	service, uow := h.serviceFactory()
+	workspace, serviceErr := service.CreateWorkspace(middleware.ContextWithClaims(c), uow, request)
 	if serviceErr != nil {
 		return serviceErr
 	}
@@ -51,7 +53,8 @@ func (h *WorkspaceHandler) GetWorkspace(c *fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusBadRequest, "Invalid workspace ID")
 	}
 
-	workspace, serviceErr := h.workspaceService.GetWorkspace(middleware.ContextWithClaims(c), contracts.GetWorkspace{ID: id})
+	service, _ := h.serviceFactory()
+	workspace, serviceErr := service.GetWorkspace(middleware.ContextWithClaims(c), contracts.GetWorkspace{ID: id})
 	if serviceErr != nil {
 		return serviceErr
 	}
@@ -66,7 +69,8 @@ func (h *WorkspaceHandler) GetWorkspacesByAdmin(c *fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusBadRequest, "Invalid admin ID")
 	}
 
-	workspaces, serviceErr := h.workspaceService.GetWorkspacesByAdmin(middleware.ContextWithClaims(c), contracts.GetWorkspacesByAdmin{AdminID: adminID})
+	service, _ := h.serviceFactory()
+	workspaces, serviceErr := service.GetWorkspacesByAdmin(middleware.ContextWithClaims(c), contracts.GetWorkspacesByAdmin{AdminID: adminID})
 	if serviceErr != nil {
 		return serviceErr
 	}
@@ -88,7 +92,8 @@ func (h *WorkspaceHandler) UpdateWorkspace(c *fiber.Ctx) error {
 
 	request.ID = id
 
-	workspace, serviceErr := h.workspaceService.UpdateWorkspace(middleware.ContextWithClaims(c), request)
+	service, uow := h.serviceFactory()
+	workspace, serviceErr := service.UpdateWorkspace(middleware.ContextWithClaims(c), uow, request)
 	if serviceErr != nil {
 		return serviceErr
 	}
@@ -103,7 +108,8 @@ func (h *WorkspaceHandler) DeleteWorkspace(c *fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusBadRequest, "Invalid workspace ID")
 	}
 
-	if serviceErr := h.workspaceService.DeleteWorkspace(middleware.ContextWithClaims(c), contracts.DeleteWorkspace{ID: id}); serviceErr != nil {
+	service, uow := h.serviceFactory()
+	if serviceErr := service.DeleteWorkspace(middleware.ContextWithClaims(c), uow, contracts.DeleteWorkspace{ID: id}); serviceErr != nil {
 		return serviceErr
 	}
 
@@ -118,7 +124,8 @@ func (h *WorkspaceHandler) ListWorkspaces(c *fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusBadRequest, "Invalid query parameters")
 	}
 
-	workspaces, serviceErr := h.workspaceService.ListWorkspaces(middleware.ContextWithClaims(c), request)
+	service, _ := h.serviceFactory()
+	workspaces, serviceErr := service.ListWorkspaces(middleware.ContextWithClaims(c), request)
 	if serviceErr != nil {
 		return serviceErr
 	}

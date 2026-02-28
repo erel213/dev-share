@@ -16,4 +16,5 @@ type WorkspaceRepository interface {
 	Update(ctx context.Context, workspace *domain.Workspace) *errors.Error
 	Delete(ctx context.Context, id uuid.UUID) *errors.Error
 	List(ctx context.Context, opts ListOptions) ([]*domain.Workspace, *errors.Error)
+	UpdateAdminID(ctx context.Context, workspaceID uuid.UUID, adminID uuid.UUID) *errors.Error
 }

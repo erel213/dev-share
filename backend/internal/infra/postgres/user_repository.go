@@ -16,11 +16,13 @@ import (
 )
 
 type userRepository struct {
-	db *sql.DB
+	uow *UnitOfWork
 }
 
-func NewUserRepository(db *sql.DB) repository.UserRepository {
-	return &userRepository{db: db}
+func NewUserRepository(uow *UnitOfWork) repository.UserRepository {
+	return &userRepository{
+		uow: uow,
+	}
 }
 
 func (r *userRepository) Create(ctx context.Context, user domain.UserAggregate) *pkgerrors.Error {
@@ -46,7 +48,7 @@ func (r *userRepository) Create(ctx context.Context, user domain.UserAggregate) 
 		return infraerrors.WrapDatabaseError(err, "create_user")
 	}
 
-	err = r.db.QueryRowContext(ctx, query, args...).
+	err = r.uow.Querier().QueryRowContext(ctx, query, args...).
 		Scan(&user.BaseUser.ID, &user.BaseUser.CreatedAt, &user.BaseUser.UpdatedAt)
 	if err != nil {
 		return infraerrors.WrapDatabaseError(err, "create_user")
@@ -65,7 +67,7 @@ func (r *userRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.Use
 		return nil, infraerrors.WrapDatabaseError(err, "get_user")
 	}
 
-	user, err := r.scanUser(r.db.QueryRowContext(ctx, query, args...))
+	user, err := r.scanUser(r.uow.Querier().QueryRowContext(ctx, query, args...))
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, domainerrors.NotFound("User", id.String())
@@ -172,7 +174,7 @@ func (r *userRepository) GetByOAuthID(ctx context.Context, provider domain.Oauth
 		return nil, infraerrors.WrapDatabaseError(err, "get_user_by_oauth")
 	}
 
-	user, err := r.scanUser(r.db.QueryRowContext(ctx, query, args...))
+	user, err := r.scanUser(r.uow.Querier().QueryRowContext(ctx, query, args...))
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, domainerrors.NotFound("User", oauthID)
@@ -193,7 +195,7 @@ func (r *userRepository) GetByEmail(ctx context.Context, email string) (*domain.
 		return nil, infraerrors.WrapDatabaseError(err, "get_user_by_email")
 	}
 
-	user, err := r.scanUser(r.db.QueryRowContext(ctx, query, args...))
+	user, err := r.scanUser(r.uow.Querier().QueryRowContext(ctx, query, args...))
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, domainerrors.NotFound("User", email)
@@ -215,7 +217,7 @@ func (r *userRepository) GetByWorkspaceID(ctx context.Context, workspaceID uuid.
 		return nil, infraerrors.WrapDatabaseError(err, "get_users_by_workspace")
 	}
 
-	rows, err := r.db.QueryContext(ctx, query, args...)
+	rows, err := r.uow.Querier().QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, infraerrors.WrapDatabaseError(err, "get_users_by_workspace")
 	}
@@ -265,7 +267,7 @@ func (r *userRepository) Update(ctx context.Context, user domain.UserAggregate) 
 		return infraerrors.WrapDatabaseError(err, "update_user")
 	}
 
-	err = r.db.QueryRowContext(ctx, query, args...).Scan(&user.BaseUser.UpdatedAt)
+	err = r.uow.Querier().QueryRowContext(ctx, query, args...).Scan(&user.BaseUser.UpdatedAt)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return domainerrors.NotFound("User", user.BaseUser.ID.String())
@@ -285,7 +287,7 @@ func (r *userRepository) Delete(ctx context.Context, id uuid.UUID) *pkgerrors.Er
 		return infraerrors.WrapDatabaseError(err, "delete_user")
 	}
 
-	result, err := r.db.ExecContext(ctx, query, args...)
+	result, err := r.uow.Querier().ExecContext(ctx, query, args...)
 	if err != nil {
 		return infraerrors.WrapDatabaseError(err, "delete_user")
 	}
@@ -319,7 +321,7 @@ func (r *userRepository) List(ctx context.Context, opts repository.ListOptions) 
 		return nil, infraerrors.WrapDatabaseError(err, "list_users")
 	}
 
-	rows, err := r.db.QueryContext(ctx, query, args...)
+	rows, err := r.uow.Querier().QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, infraerrors.WrapDatabaseError(err, "list_users")
 	}
@@ -351,7 +353,7 @@ func (r *userRepository) Count(ctx context.Context) (int, *pkgerrors.Error) {
 	}
 
 	var count int
-	err = r.db.QueryRowContext(ctx, query, args...).Scan(&count)
+	err = r.uow.Querier().QueryRowContext(ctx, query, args...).Scan(&count)
 	if err != nil {
 		return 0, infraerrors.WrapDatabaseError(err, "count_users")
 	}

@@ -48,11 +48,6 @@ func main() {
 
 	slog.Info("successfully connected to database")
 
-	// Initialize repositories
-	userRepo := postgres.NewUserRepository(db)
-	workspaceRepo := postgres.NewWorkspaceRepository(db)
-	envRepo := postgres.NewEnvironmentRepository(db)
-
 	// Initialize validation service
 	validator := validation.New()
 	if err := validator.RegisterDefaultCustomValidations(); err != nil {
@@ -69,24 +64,17 @@ func main() {
 	}
 	slog.Info("JWT service initialized")
 
-	// UoW factory — creates a fresh UnitOfWork per request
-	uowFactory := func() apphandlers.UnitOfWork {
-		return postgres.NewUnitOfWork(db)
-	}
+	// Infrastructure factories
+	uowFactory := postgres.NewUnitOfWorkFactory(db)
+	repoFactory := postgres.NewRepositoryFactory()
 
-	// Initialize services
-	userService := application.NewUserService(userRepo, validator)
-	workspaceService := application.NewWorkspaceService(workspaceRepo, validator)
-	adminService := application.NewAdminService(userRepo, workspaceRepo, validator)
+	// Application-layer service factory
+	serviceFactory := application.NewServiceFactory(uowFactory, repoFactory, validator)
 
-	cookieCfg := jwt.DefaultCookieConfig()
-
-	// Initialize handlers
-	userHandler := handlers.NewUserHandler(userService, uowFactory)
-	workspaceHandler := handlers.NewWorkspaceHandler(workspaceService, uowFactory)
-	adminHandler := handlers.NewAdminHandler(adminService, uowFactory)
-
-	_ = envRepo
+	// Initialize handlers — method values satisfy the handler's func() (Service, UnitOfWork) field
+	userHandler := handlers.NewUserHandler(serviceFactory.NewUserService)
+	workspaceHandler := handlers.NewWorkspaceHandler(serviceFactory.NewWorkspaceService)
+	adminHandler := handlers.NewAdminHandler(serviceFactory.NewAdminService)
 
 	app := fiber.New(fiber.Config{
 		AppName:      "Dev-Share Backend",
@@ -106,6 +94,9 @@ func main() {
 		})
 	})
 
+	// Admin initialization endpoint (unprotected, first-time only)
+	app.Post("/admin/init", adminHandler.InitializeSystem)
+
 	// API routes
 	api := app.Group("/api/v1")
 
@@ -118,7 +109,7 @@ func main() {
 	// Public: user registration does not require authentication
 	userHandler.RegisterRoutes(api)
 
-	protected := api.Group("", middleware.RequireAuth(jwtService, cookieCfg))
+	protected := api.Group("", middleware.RequireAuth(jwtService, jwt.DefaultCookieConfig()))
 	workspaceHandler.RegisterRoutes(protected)
 
 	// Get port from environment or default to 8080

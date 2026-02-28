@@ -16,11 +16,13 @@ import (
 )
 
 type workspaceRepository struct {
-	db *sql.DB
+	uow *UnitOfWork
 }
 
-func NewWorkspaceRepository(db *sql.DB) repository.WorkspaceRepository {
-	return &workspaceRepository{db: db}
+func NewWorkspaceRepository(uow *UnitOfWork) repository.WorkspaceRepository {
+	return &workspaceRepository{
+		uow: uow,
+	}
 }
 
 func (r *workspaceRepository) Create(ctx context.Context, workspace *domain.Workspace) *errors.Error {
@@ -34,7 +36,7 @@ func (r *workspaceRepository) Create(ctx context.Context, workspace *domain.Work
 		return errors.Wrap(err, "failed to build insert query")
 	}
 
-	err = r.db.QueryRowContext(ctx, query, args...).
+	err = r.uow.Querier().QueryRowContext(ctx, query, args...).
 		Scan(&workspace.ID, &workspace.CreatedAt, &workspace.UpdatedAt)
 	if err != nil {
 		return infraerrors.WrapDatabaseError(err, "create_workspace")
@@ -55,7 +57,7 @@ func (r *workspaceRepository) GetByID(ctx context.Context, id uuid.UUID) (*domai
 	}
 
 	var workspace domain.Workspace
-	err = r.db.QueryRowContext(ctx, query, args...).Scan(
+	err = r.uow.Querier().QueryRowContext(ctx, query, args...).Scan(
 		&workspace.ID,
 		&workspace.Name,
 		&workspace.Description,
@@ -85,7 +87,7 @@ func (r *workspaceRepository) GetByAdminID(ctx context.Context, adminID uuid.UUI
 		return nil, errors.Wrap(err, "failed to build query")
 	}
 
-	rows, err := r.db.QueryContext(ctx, query, args...)
+	rows, err := r.uow.Querier().QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, infraerrors.WrapDatabaseError(err, "get_workspaces_by_admin")
 	}
@@ -129,7 +131,7 @@ func (r *workspaceRepository) Update(ctx context.Context, workspace *domain.Work
 		return errors.Wrap(err, "failed to build update query")
 	}
 
-	err = r.db.QueryRowContext(ctx, query, args...).Scan(&workspace.UpdatedAt)
+	err = r.uow.Querier().QueryRowContext(ctx, query, args...).Scan(&workspace.UpdatedAt)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return domainerrors.NotFound("Workspace", workspace.ID.String())
@@ -150,7 +152,7 @@ func (r *workspaceRepository) Delete(ctx context.Context, id uuid.UUID) *errors.
 		return errors.Wrap(err, "failed to build delete query")
 	}
 
-	result, err := r.db.ExecContext(ctx, query, args...)
+	result, err := r.uow.Querier().ExecContext(ctx, query, args...)
 	if err != nil {
 		return infraerrors.WrapDatabaseError(err, "delete_workspace")
 	}
@@ -185,7 +187,7 @@ func (r *workspaceRepository) List(ctx context.Context, opts repository.ListOpti
 		return nil, errors.Wrap(err, "failed to build list query")
 	}
 
-	rows, err := r.db.QueryContext(ctx, query, args...)
+	rows, err := r.uow.Querier().QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, infraerrors.WrapDatabaseError(err, "list_workspaces")
 	}
@@ -213,4 +215,32 @@ func (r *workspaceRepository) List(ctx context.Context, opts repository.ListOpti
 	}
 
 	return workspaces, nil
+}
+
+func (r *workspaceRepository) UpdateAdminID(ctx context.Context, workspaceID uuid.UUID, adminID uuid.UUID) *errors.Error {
+	query, args, err := StatementBuilder.
+		Update("workspaces").
+		Set("admin_id", adminID).
+		Set("updated_at", sq.Expr("CURRENT_TIMESTAMP")).
+		Where(sq.Eq{"id": workspaceID}).
+		ToSql()
+	if err != nil {
+		return errors.Wrap(err, "failed to build update query")
+	}
+
+	result, err := r.uow.Querier().ExecContext(ctx, query, args...)
+	if err != nil {
+		return infraerrors.WrapDatabaseError(err, "update_workspace_admin")
+	}
+
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return infraerrors.WrapDatabaseError(err, "get_rows_affected")
+	}
+
+	if rows == 0 {
+		return domainerrors.NotFound("Workspace", workspaceID.String())
+	}
+
+	return nil
 }

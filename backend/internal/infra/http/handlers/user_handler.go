@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"backend/internal/application"
+	apphandlers "backend/internal/application/handlers"
 	"backend/internal/infra/http/middleware"
 	"backend/pkg/contracts"
 	"backend/pkg/jwt"
@@ -10,16 +11,21 @@ import (
 )
 
 type UserHandler struct {
-	userService application.UserService
-	jwtService  *jwt.Service
-	cookieCfg   jwt.CookieConfig
+	serviceFactory func() (application.UserService, apphandlers.UnitOfWork)
+	jwtService     *jwt.Service
+	cookieCfg      jwt.CookieConfig
 }
 
-func NewUserHandler(userService application.UserService, jwtService *jwt.Service, cookieCfg jwt.CookieConfig) *UserHandler {
+func NewUserHandler(serviceFactory func() (application.UserService, apphandlers.UnitOfWork)) *UserHandler {
+	jwtService, err := jwt.NewService()
+	if err != nil {
+		panic("failed to initialize JWT service: " + err.Error())
+	}
+	cookieCfg := jwt.DefaultCookieConfig()
 	return &UserHandler{
-		userService: userService,
-		jwtService:  jwtService,
-		cookieCfg:   cookieCfg,
+		serviceFactory: serviceFactory,
+		jwtService:     jwtService,
+		cookieCfg:      cookieCfg,
 	}
 }
 
@@ -36,7 +42,13 @@ func (h *UserHandler) CreateUser(c *fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusBadRequest, "Invalid request body")
 	}
 
-	user, serviceErr := h.userService.CreateLocalUser(c.Context(), request)
+	// UserService.CreateLocalUser does not defer rollback internally (it can be called
+	// nested from AdminService), so the handler is responsible for cleanup.
+	service, uow := h.serviceFactory()
+	defer uow.Rollback()
+
+	// Call userService.CreateLocalUser()
+	user, serviceErr := service.CreateLocalUser(c.Context(), uow, request)
 	if serviceErr != nil {
 		return serviceErr
 	}

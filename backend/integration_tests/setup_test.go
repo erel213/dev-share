@@ -31,6 +31,22 @@ func TestMain(m *testing.M) {
 		os.Exit(1)
 	}
 
+	dbConfig := postgres.Config{
+		Host:     getEnv("TEST_DB_HOST", "localhost"),
+		Port:     5432,
+		User:     getEnv("TEST_DB_USER", "devshare"),
+		Password: getEnv("TEST_DB_PASSWORD", "devshare_password"),
+		DBName:   getEnv("TEST_DB_NAME", "devshare"),
+		SSLMode:  getEnv("TEST_DB_SSL_MODE", "disable"),
+	}
+	var err error
+	DbConnection, err = postgres.NewDB(dbConfig)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "failed to connect to database: %v\n", err)
+		os.Exit(1)
+	}
+	defer DbConnection.Close()
+
 	migrator, err := runMigrations(dbDSN)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "failed to run migrations: %v\n", err)
@@ -44,20 +60,6 @@ func TestMain(m *testing.M) {
 			fmt.Fprintf(os.Stderr, "failed to rollback migrations: %v\n", err)
 		}
 		migrator.Close()
-	}
-	dbConfig := postgres.Config{
-		Host: getEnv("TEST_DB_HOST", "localhost"),
-		Port: 5432,
-		User: getEnv("TEST_DB_USER",
-			"postgres"),
-		Password: getEnv("TEST_DB_PASSWORD", "postgres"),
-		DBName:   getEnv("TEST_DB_NAME", "devshare"),
-		SSLMode:  getEnv("TEST_DB_SSL_MODE", "disable"),
-	}
-	DbConnection, err = postgres.NewDB(dbConfig)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "failed to connect to database: %v\n", err)
-		os.Exit(1)
 	}
 
 	os.Exit(code)

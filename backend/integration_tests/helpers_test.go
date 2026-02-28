@@ -35,9 +35,23 @@ type ErrorResponse struct {
 
 // Teardown
 
-func TearDownWorkspace(t *testing.T, workspaceID uuid.UUID) {
+func TearDownWorkspace(t *testing.T, workspaceName string) {
 	t.Helper()
-	DbConnection.Exec("DELETE FROM workspaces WHERE id = $1", workspaceID)
+	DbConnection.Exec("DELETE FROM workspaces WHERE name = $1", workspaceName)
+}
+
+// GetWorkspaceFromDB fetches a workspace directly from the DB, bypassing HTTP auth.
+func GetWorkspaceFromDB(t *testing.T, id uuid.UUID) *WorkspaceResponse {
+	t.Helper()
+	var w WorkspaceResponse
+	err := DbConnection.QueryRow(
+		"SELECT id, name, description, admin_id, created_at, updated_at FROM workspaces WHERE id = $1",
+		id,
+	).Scan(&w.ID, &w.Name, &w.Description, &w.AdminID, &w.CreatedAt, &w.UpdatedAt)
+	if err != nil {
+		t.Fatalf("GetWorkspaceFromDB: %v", err)
+	}
+	return &w
 }
 
 // Workspace helpers
@@ -236,4 +250,47 @@ func ReadErrorResponse(t *testing.T, resp *http.Response) *ErrorResponse {
 	}
 
 	return &errResp
+}
+
+// Admin helpers
+
+type AdminInitResponse struct {
+	Message     string    `json:"message"`
+	WorkspaceID uuid.UUID `json:"workspace_id"`
+	AdminUserID uuid.UUID `json:"admin_user_id"`
+}
+
+func InitializeAdmin(t *testing.T, adminName, adminEmail, adminPassword, workspaceName, workspaceDescription, token string) (*AdminInitResponse, int) {
+	t.Helper()
+
+	payload := map[string]interface{}{
+		"admin_name":            adminName,
+		"admin_email":           adminEmail,
+		"admin_password":        adminPassword,
+		"workspace_name":        workspaceName,
+		"workspace_description": workspaceDescription,
+	}
+
+	body, _ := json.Marshal(payload)
+	req, _ := http.NewRequest(http.MethodPost, BaseURL+"/admin/init", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	if token != "" {
+		req.Header.Set("X-Admin-Init-Token", token)
+	}
+
+	resp, err := HTTPClient.Do(req)
+	if err != nil {
+		t.Fatalf("failed to initialize admin: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusCreated {
+		var adminResp AdminInitResponse
+		if err := json.NewDecoder(resp.Body).Decode(&adminResp); err != nil {
+			t.Fatalf("failed to decode admin init response: %v", err)
+		}
+		return &adminResp, resp.StatusCode
+	}
+
+	return nil, resp.StatusCode
 }
