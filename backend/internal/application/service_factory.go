@@ -29,6 +29,15 @@ func (f *ServiceFactory) NewWorkspaceService() (WorkspaceService, apphandlers.Un
 	return NewWorkspaceService(f.repoFactory.CreateWorkspaceRepository(uow), f.validator), uow
 }
 
+func (f *ServiceFactory) NewTemplateService() TemplateService {
+	uow := f.uowFactory.Create()
+	return NewTemplateService(
+		f.repoFactory.CreateTemplateRepository(uow),
+		f.repoFactory.CreateWorkspaceRepository(uow),
+		f.validator,
+	)
+}
+
 func (f *ServiceFactory) NewAdminService() (*AdminService, apphandlers.UnitOfWork) {
 	uow := f.uowFactory.Create()
 	userRepo := f.repoFactory.CreateUserRepository(uow)

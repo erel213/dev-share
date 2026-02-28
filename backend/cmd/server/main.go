@@ -74,6 +74,7 @@ func main() {
 	// Initialize handlers — method values satisfy the handler's func() (Service, UnitOfWork) field
 	userHandler := handlers.NewUserHandler(serviceFactory.NewUserService)
 	workspaceHandler := handlers.NewWorkspaceHandler(serviceFactory.NewWorkspaceService)
+	templateHandler := handlers.NewTemplateHandler(serviceFactory.NewTemplateService)
 	adminHandler := handlers.NewAdminHandler(serviceFactory.NewAdminService)
 
 	app := fiber.New(fiber.Config{
@@ -111,6 +112,7 @@ func main() {
 
 	protected := api.Group("", middleware.RequireAuth(jwtService, jwt.DefaultCookieConfig()))
 	workspaceHandler.RegisterRoutes(protected)
+	templateHandler.RegisterRoutes(protected)
 
 	// Get port from environment or default to 8080
 	port := getEnv("PORT", "8080")
