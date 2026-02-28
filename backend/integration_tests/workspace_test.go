@@ -8,8 +8,13 @@ import (
 )
 
 func TestCreateWorkspace_Success(t *testing.T) {
+	auth := AuthContext{
+		UserID:      uuid.New(),
+		UserName:    "Test User",
+		WorkspaceID: uuid.New(),
+	}
 	adminID := uuid.New()
-	workspace, status := CreateWorkspace(t, "Test Workspace", "A test workspace", adminID)
+	workspace, status := CreateWorkspace(t, auth, "Test Workspace", "A test workspace", adminID)
 
 	if status != http.StatusCreated {
 		t.Fatalf("expected status 201, got %d", status)
@@ -41,6 +46,12 @@ func TestCreateWorkspace_Success(t *testing.T) {
 }
 
 func TestCreateWorkspace_ValidationErrors(t *testing.T) {
+	auth := AuthContext{
+		UserID:      uuid.New(),
+		UserName:    "Test User",
+		WorkspaceID: uuid.New(),
+	}
+
 	tests := []struct {
 		name        string
 		wsName      string
@@ -73,7 +84,7 @@ func TestCreateWorkspace_ValidationErrors(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, status := CreateWorkspace(t, tt.wsName, tt.description, tt.adminID)
+			_, status := CreateWorkspace(t, auth, tt.wsName, tt.description, tt.adminID)
 			if status != tt.wantStatus {
 				t.Errorf("expected status %d, got %d", tt.wantStatus, status)
 			}
@@ -82,10 +93,15 @@ func TestCreateWorkspace_ValidationErrors(t *testing.T) {
 }
 
 func TestGetWorkspace_Success(t *testing.T) {
+	auth := AuthContext{
+		UserID:      uuid.New(),
+		UserName:    "Test User",
+		WorkspaceID: uuid.New(),
+	}
 	adminID := uuid.New()
-	created, _ := CreateWorkspace(t, "Get Test Workspace", "Description", adminID)
+	created, _ := CreateWorkspace(t, auth, "Get Test Workspace", "Description", adminID)
 
-	fetched, status := GetWorkspace(t, created.ID)
+	fetched, status := GetWorkspace(t, auth, created.ID)
 
 	if status != http.StatusOK {
 		t.Fatalf("expected status 200, got %d", status)
@@ -109,8 +125,13 @@ func TestGetWorkspace_Success(t *testing.T) {
 }
 
 func TestGetWorkspace_NotFound(t *testing.T) {
+	auth := AuthContext{
+		UserID:      uuid.New(),
+		UserName:    "Test User",
+		WorkspaceID: uuid.New(),
+	}
 	randomID := uuid.New()
-	_, status := GetWorkspace(t, randomID)
+	_, status := GetWorkspace(t, auth, randomID)
 
 	if status != http.StatusNotFound {
 		t.Errorf("expected status 404, got %d", status)
@@ -118,12 +139,17 @@ func TestGetWorkspace_NotFound(t *testing.T) {
 }
 
 func TestGetWorkspacesByAdmin_Success(t *testing.T) {
+	auth := AuthContext{
+		UserID:      uuid.New(),
+		UserName:    "Test User",
+		WorkspaceID: uuid.New(),
+	}
 	adminID := uuid.New()
 
-	CreateWorkspace(t, "Admin Workspace 1", "First workspace", adminID)
-	CreateWorkspace(t, "Admin Workspace 2", "Second workspace", adminID)
+	CreateWorkspace(t, auth, "Admin Workspace 1", "First workspace", adminID)
+	CreateWorkspace(t, auth, "Admin Workspace 2", "Second workspace", adminID)
 
-	workspaces, status := GetWorkspacesByAdmin(t, adminID)
+	workspaces, status := GetWorkspacesByAdmin(t, auth, adminID)
 
 	if status != http.StatusOK {
 		t.Fatalf("expected status 200, got %d", status)
@@ -141,9 +167,14 @@ func TestGetWorkspacesByAdmin_Success(t *testing.T) {
 }
 
 func TestGetWorkspacesByAdmin_Empty(t *testing.T) {
+	auth := AuthContext{
+		UserID:      uuid.New(),
+		UserName:    "Test User",
+		WorkspaceID: uuid.New(),
+	}
 	randomAdminID := uuid.New()
 
-	workspaces, status := GetWorkspacesByAdmin(t, randomAdminID)
+	workspaces, status := GetWorkspacesByAdmin(t, auth, randomAdminID)
 
 	if status != http.StatusOK {
 		t.Fatalf("expected status 200, got %d", status)
@@ -155,10 +186,15 @@ func TestGetWorkspacesByAdmin_Empty(t *testing.T) {
 }
 
 func TestUpdateWorkspace_Success(t *testing.T) {
+	auth := AuthContext{
+		UserID:      uuid.New(),
+		UserName:    "Test User",
+		WorkspaceID: uuid.New(),
+	}
 	adminID := uuid.New()
-	created, _ := CreateWorkspace(t, "Original Name", "Original Description", adminID)
+	created, _ := CreateWorkspace(t, auth, "Original Name", "Original Description", adminID)
 
-	updated, status := UpdateWorkspace(t, created.ID, "Updated Name", "Updated Description")
+	updated, status := UpdateWorkspace(t, auth, created.ID, "Updated Name", "Updated Description")
 
 	if status != http.StatusOK {
 		t.Fatalf("expected status 200, got %d", status)
@@ -186,8 +222,13 @@ func TestUpdateWorkspace_Success(t *testing.T) {
 }
 
 func TestUpdateWorkspace_NotFound(t *testing.T) {
+	auth := AuthContext{
+		UserID:      uuid.New(),
+		UserName:    "Test User",
+		WorkspaceID: uuid.New(),
+	}
 	randomID := uuid.New()
-	_, status := UpdateWorkspace(t, randomID, "New Name", "New Description")
+	_, status := UpdateWorkspace(t, auth, randomID, "New Name", "New Description")
 
 	if status != http.StatusNotFound {
 		t.Errorf("expected status 404, got %d", status)
@@ -195,24 +236,34 @@ func TestUpdateWorkspace_NotFound(t *testing.T) {
 }
 
 func TestDeleteWorkspace_Success(t *testing.T) {
+	auth := AuthContext{
+		UserID:      uuid.New(),
+		UserName:    "Test User",
+		WorkspaceID: uuid.New(),
+	}
 	adminID := uuid.New()
-	created, _ := CreateWorkspace(t, "To Delete", "Will be deleted", adminID)
+	created, _ := CreateWorkspace(t, auth, "To Delete", "Will be deleted", adminID)
 
-	status := DeleteWorkspace(t, created.ID)
+	status := DeleteWorkspace(t, auth, created.ID)
 
 	if status != http.StatusNoContent {
 		t.Fatalf("expected status 204, got %d", status)
 	}
 
-	_, getStatus := GetWorkspace(t, created.ID)
+	_, getStatus := GetWorkspace(t, auth, created.ID)
 	if getStatus != http.StatusNotFound {
 		t.Errorf("expected workspace to be deleted (404), got status %d", getStatus)
 	}
 }
 
 func TestDeleteWorkspace_NotFound(t *testing.T) {
+	auth := AuthContext{
+		UserID:      uuid.New(),
+		UserName:    "Test User",
+		WorkspaceID: uuid.New(),
+	}
 	randomID := uuid.New()
-	status := DeleteWorkspace(t, randomID)
+	status := DeleteWorkspace(t, auth, randomID)
 
 	if status != http.StatusNotFound {
 		t.Errorf("expected status 404, got %d", status)
@@ -220,13 +271,18 @@ func TestDeleteWorkspace_NotFound(t *testing.T) {
 }
 
 func TestListWorkspaces_Success(t *testing.T) {
+	auth := AuthContext{
+		UserID:      uuid.New(),
+		UserName:    "Test User",
+		WorkspaceID: uuid.New(),
+	}
 	adminID := uuid.New()
 
-	CreateWorkspace(t, "List Test 1", "First", adminID)
-	CreateWorkspace(t, "List Test 2", "Second", adminID)
-	CreateWorkspace(t, "List Test 3", "Third", adminID)
+	CreateWorkspace(t, auth, "List Test 1", "First", adminID)
+	CreateWorkspace(t, auth, "List Test 2", "Second", adminID)
+	CreateWorkspace(t, auth, "List Test 3", "Third", adminID)
 
-	workspaces, status := ListWorkspaces(t, 10, 0, "", "")
+	workspaces, status := ListWorkspaces(t, auth, 10, 0, "", "")
 
 	if status != http.StatusOK {
 		t.Fatalf("expected status 200, got %d", status)
@@ -238,13 +294,18 @@ func TestListWorkspaces_Success(t *testing.T) {
 }
 
 func TestListWorkspaces_Pagination(t *testing.T) {
+	auth := AuthContext{
+		UserID:      uuid.New(),
+		UserName:    "Test User",
+		WorkspaceID: uuid.New(),
+	}
 	adminID := uuid.New()
 
 	for i := range 5 {
-		CreateWorkspace(t, "Pagination Test "+string(rune('A'+i)), "Test workspace", adminID)
+		CreateWorkspace(t, auth, "Pagination Test "+string(rune('A'+i)), "Test workspace", adminID)
 	}
 
-	page1, status1 := ListWorkspaces(t, 2, 0, "created_at", "DESC")
+	page1, status1 := ListWorkspaces(t, auth, 2, 0, "created_at", "DESC")
 	if status1 != http.StatusOK {
 		t.Fatalf("expected status 200 for page 1, got %d", status1)
 	}
@@ -253,7 +314,7 @@ func TestListWorkspaces_Pagination(t *testing.T) {
 		t.Errorf("expected 2 workspaces on page 1, got %d", len(page1))
 	}
 
-	page2, status2 := ListWorkspaces(t, 2, 2, "created_at", "DESC")
+	page2, status2 := ListWorkspaces(t, auth, 2, 2, "created_at", "DESC")
 	if status2 != http.StatusOK {
 		t.Fatalf("expected status 200 for page 2, got %d", status2)
 	}

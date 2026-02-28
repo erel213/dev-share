@@ -2,6 +2,7 @@ package integration_tests
 
 import (
 	"backend/internal/infra/postgres"
+	"backend/pkg/jwt"
 	"database/sql"
 	"fmt"
 	"net/http"
@@ -18,6 +19,7 @@ var (
 	BaseURL      string
 	HTTPClient   *http.Client
 	DbConnection *sql.DB
+	jwtSvc       *jwt.Service
 )
 
 func TestMain(m *testing.M) {
@@ -25,6 +27,13 @@ func TestMain(m *testing.M) {
 	dbDSN := getEnv("TEST_DB_DSN", "postgres://devshare:devshare_password@localhost:5432/devshare?sslmode=disable")
 
 	HTTPClient = &http.Client{Timeout: 10 * time.Second}
+
+	var err error
+	jwtSvc, err = jwt.NewService()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "failed to create JWT service (check JWT_SECRET env): %v\n", err)
+		os.Exit(1)
+	}
 
 	if err := waitForApp(BaseURL + "/health"); err != nil {
 		fmt.Fprintf(os.Stderr, "backend not ready: %v\n", err)
@@ -39,7 +48,6 @@ func TestMain(m *testing.M) {
 		DBName:   getEnv("TEST_DB_NAME", "devshare"),
 		SSLMode:  getEnv("TEST_DB_SSL_MODE", "disable"),
 	}
-	var err error
 	DbConnection, err = postgres.NewDB(dbConfig)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "failed to connect to database: %v\n", err)

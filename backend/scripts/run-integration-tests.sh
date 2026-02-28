@@ -198,6 +198,10 @@ echo ""
 print_info "Running $TEST_NAME..."
 echo ""
 
+# Export JWT_SECRET so tests can generate tokens matching the backend's config.
+# This must match the JWT_SECRET set for the backend service in docker-compose.yml.
+export JWT_SECRET="${JWT_SECRET:-your_jwt_secretyour_jwt_secretyour_jwt_secretyour_jwt_secret}"
+
 if [ "$TEST_SUITE" = "all" ]; then
     # Run all tests using the package pattern
     if go test $TEST_PATTERN $VERBOSE -timeout "$TEST_TIMEOUT"; then

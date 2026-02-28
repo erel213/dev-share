@@ -33,6 +33,13 @@ type ErrorResponse struct {
 	Metadata map[string]interface{} `json:"metadata,omitempty"`
 }
 
+// AuthContext holds the identity claims for generating a per-request JWT token.
+type AuthContext struct {
+	UserID      uuid.UUID
+	UserName    string
+	WorkspaceID uuid.UUID
+}
+
 // Teardown
 
 func TearDownWorkspace(t *testing.T, workspaceName string) {
@@ -54,9 +61,23 @@ func GetWorkspaceFromDB(t *testing.T, id uuid.UUID) *WorkspaceResponse {
 	return &w
 }
 
+// addAuth generates a fresh JWT token from auth and attaches it as a cookie.
+func addAuth(t *testing.T, req *http.Request, auth AuthContext) {
+	t.Helper()
+	token, err := jwtSvc.GenerateToken(
+		auth.UserID.String(),
+		auth.UserName,
+		auth.WorkspaceID.String(),
+	)
+	if err != nil {
+		t.Fatalf("addAuth: failed to generate JWT token: %v", err)
+	}
+	req.AddCookie(&http.Cookie{Name: "access_token", Value: token})
+}
+
 // Workspace helpers
 
-func CreateWorkspace(t *testing.T, name, description string, adminID uuid.UUID) (*WorkspaceResponse, int) {
+func CreateWorkspace(t *testing.T, auth AuthContext, name, description string, adminID uuid.UUID) (*WorkspaceResponse, int) {
 	t.Helper()
 
 	payload := map[string]interface{}{
@@ -66,11 +87,11 @@ func CreateWorkspace(t *testing.T, name, description string, adminID uuid.UUID) 
 	}
 
 	body, _ := json.Marshal(payload)
-	resp, err := HTTPClient.Post(
-		BaseURL+"/api/v1/workspaces",
-		"application/json",
-		bytes.NewReader(body),
-	)
+	req, _ := http.NewRequest(http.MethodPost, BaseURL+"/api/v1/workspaces", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	addAuth(t, req, auth)
+
+	resp, err := HTTPClient.Do(req)
 	if err != nil {
 		t.Fatalf("failed to create workspace: %v", err)
 	}
@@ -87,10 +108,13 @@ func CreateWorkspace(t *testing.T, name, description string, adminID uuid.UUID) 
 	return nil, resp.StatusCode
 }
 
-func GetWorkspace(t *testing.T, id uuid.UUID) (*WorkspaceResponse, int) {
+func GetWorkspace(t *testing.T, auth AuthContext, id uuid.UUID) (*WorkspaceResponse, int) {
 	t.Helper()
 
-	resp, err := HTTPClient.Get(fmt.Sprintf("%s/api/v1/workspaces/%s", BaseURL, id))
+	req, _ := http.NewRequest(http.MethodGet, fmt.Sprintf("%s/api/v1/workspaces/%s", BaseURL, id), nil)
+	addAuth(t, req, auth)
+
+	resp, err := HTTPClient.Do(req)
 	if err != nil {
 		t.Fatalf("failed to get workspace: %v", err)
 	}
@@ -107,10 +131,13 @@ func GetWorkspace(t *testing.T, id uuid.UUID) (*WorkspaceResponse, int) {
 	return nil, resp.StatusCode
 }
 
-func GetWorkspacesByAdmin(t *testing.T, adminID uuid.UUID) ([]*WorkspaceResponse, int) {
+func GetWorkspacesByAdmin(t *testing.T, auth AuthContext, adminID uuid.UUID) ([]*WorkspaceResponse, int) {
 	t.Helper()
 
-	resp, err := HTTPClient.Get(fmt.Sprintf("%s/api/v1/workspaces/admin/%s", BaseURL, adminID))
+	req, _ := http.NewRequest(http.MethodGet, fmt.Sprintf("%s/api/v1/workspaces/admin/%s", BaseURL, adminID), nil)
+	addAuth(t, req, auth)
+
+	resp, err := HTTPClient.Do(req)
 	if err != nil {
 		t.Fatalf("failed to get workspaces by admin: %v", err)
 	}
@@ -127,7 +154,7 @@ func GetWorkspacesByAdmin(t *testing.T, adminID uuid.UUID) ([]*WorkspaceResponse
 	return nil, resp.StatusCode
 }
 
-func UpdateWorkspace(t *testing.T, id uuid.UUID, name, description string) (*WorkspaceResponse, int) {
+func UpdateWorkspace(t *testing.T, auth AuthContext, id uuid.UUID, name, description string) (*WorkspaceResponse, int) {
 	t.Helper()
 
 	payload := map[string]interface{}{}
@@ -141,6 +168,7 @@ func UpdateWorkspace(t *testing.T, id uuid.UUID, name, description string) (*Wor
 	body, _ := json.Marshal(payload)
 	req, _ := http.NewRequest(http.MethodPut, fmt.Sprintf("%s/api/v1/workspaces/%s", BaseURL, id), bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
+	addAuth(t, req, auth)
 
 	resp, err := HTTPClient.Do(req)
 	if err != nil {
@@ -159,10 +187,12 @@ func UpdateWorkspace(t *testing.T, id uuid.UUID, name, description string) (*Wor
 	return nil, resp.StatusCode
 }
 
-func DeleteWorkspace(t *testing.T, id uuid.UUID) int {
+func DeleteWorkspace(t *testing.T, auth AuthContext, id uuid.UUID) int {
 	t.Helper()
 
 	req, _ := http.NewRequest(http.MethodDelete, fmt.Sprintf("%s/api/v1/workspaces/%s", BaseURL, id), nil)
+	addAuth(t, req, auth)
+
 	resp, err := HTTPClient.Do(req)
 	if err != nil {
 		t.Fatalf("failed to delete workspace: %v", err)
@@ -172,7 +202,7 @@ func DeleteWorkspace(t *testing.T, id uuid.UUID) int {
 	return resp.StatusCode
 }
 
-func ListWorkspaces(t *testing.T, limit, offset int, sortBy, order string) ([]*WorkspaceResponse, int) {
+func ListWorkspaces(t *testing.T, auth AuthContext, limit, offset int, sortBy, order string) ([]*WorkspaceResponse, int) {
 	t.Helper()
 
 	url := fmt.Sprintf("%s/api/v1/workspaces?limit=%d&offset=%d", BaseURL, limit, offset)
@@ -183,7 +213,10 @@ func ListWorkspaces(t *testing.T, limit, offset int, sortBy, order string) ([]*W
 		url += "&order=" + order
 	}
 
-	resp, err := HTTPClient.Get(url)
+	req, _ := http.NewRequest(http.MethodGet, url, nil)
+	addAuth(t, req, auth)
+
+	resp, err := HTTPClient.Do(req)
 	if err != nil {
 		t.Fatalf("failed to list workspaces: %v", err)
 	}

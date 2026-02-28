@@ -8,8 +8,13 @@ import (
 )
 
 func TestCreateUser_Success(t *testing.T) {
+	auth := AuthContext{
+		UserID:      uuid.New(),
+		UserName:    "Test User",
+		WorkspaceID: uuid.New(),
+	}
 	adminID := uuid.New()
-	workspace, _ := CreateWorkspace(t, "User Test Workspace", "For user tests", adminID)
+	workspace, _ := CreateWorkspace(t, auth, "User Test Workspace", "For user tests", adminID)
 
 	user, status := CreateUser(t, "John Doe", "john@example.com", "SecureP@ssw0rd!", workspace.ID)
 
@@ -27,8 +32,13 @@ func TestCreateUser_Success(t *testing.T) {
 }
 
 func TestCreateUser_DuplicateEmail(t *testing.T) {
+	auth := AuthContext{
+		UserID:      uuid.New(),
+		UserName:    "Test User",
+		WorkspaceID: uuid.New(),
+	}
 	adminID := uuid.New()
-	workspace, _ := CreateWorkspace(t, "Duplicate Email Test", "Workspace", adminID)
+	workspace, _ := CreateWorkspace(t, auth, "Duplicate Email Test", "Workspace", adminID)
 
 	CreateUser(t, "First User", "duplicate@example.com", "SecureP@ss1!", workspace.ID)
 
@@ -50,8 +60,13 @@ func TestCreateUser_InvalidWorkspace(t *testing.T) {
 }
 
 func TestCreateUser_WeakPassword(t *testing.T) {
+	auth := AuthContext{
+		UserID:      uuid.New(),
+		UserName:    "Test User",
+		WorkspaceID: uuid.New(),
+	}
 	adminID := uuid.New()
-	workspace, _ := CreateWorkspace(t, "Weak Password Test", "Workspace", adminID)
+	workspace, _ := CreateWorkspace(t, auth, "Weak Password Test", "Workspace", adminID)
 
 	tests := []struct {
 		name     string
@@ -91,8 +106,13 @@ func TestCreateUser_WeakPassword(t *testing.T) {
 }
 
 func TestCreateUser_ValidationErrors(t *testing.T) {
+	auth := AuthContext{
+		UserID:      uuid.New(),
+		UserName:    "Test User",
+		WorkspaceID: uuid.New(),
+	}
 	adminID := uuid.New()
-	workspace, _ := CreateWorkspace(t, "Validation Test", "Workspace", adminID)
+	workspace, _ := CreateWorkspace(t, auth, "Validation Test", "Workspace", adminID)
 
 	tests := []struct {
 		name       string
@@ -150,8 +170,13 @@ func TestCreateUser_ValidationErrors(t *testing.T) {
 }
 
 func TestCreateUser_CascadeDelete(t *testing.T) {
+	auth := AuthContext{
+		UserID:      uuid.New(),
+		UserName:    "Test User",
+		WorkspaceID: uuid.New(),
+	}
 	adminID := uuid.New()
-	workspace, _ := CreateWorkspace(t, "Cascade Test", "Workspace for cascade delete", adminID)
+	workspace, _ := CreateWorkspace(t, auth, "Cascade Test", "Workspace for cascade delete", adminID)
 
 	user, status := CreateUser(t, "Cascade User", "cascade@example.com", "CascadeP@ss1!", workspace.ID)
 	if status != http.StatusCreated {
@@ -162,7 +187,7 @@ func TestCreateUser_CascadeDelete(t *testing.T) {
 		t.Fatal("user ID is nil")
 	}
 
-	deleteStatus := DeleteWorkspace(t, workspace.ID)
+	deleteStatus := DeleteWorkspace(t, auth, workspace.ID)
 	if deleteStatus != http.StatusNoContent {
 		t.Fatalf("failed to delete workspace: status %d", deleteStatus)
 	}
