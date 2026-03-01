@@ -49,3 +49,15 @@ func (h *AdminHandler) InitializeSystem(c *fiber.Ctx) error {
 	// Return 201 Created with response
 	return c.Status(fiber.StatusCreated).JSON(response)
 }
+
+// GetSystemStatus handles GET /admin/status
+func (h *AdminHandler) GetSystemStatus(c *fiber.Ctx) error {
+	service, _ := h.serviceFactory()
+	initialized, err := service.IsInitialized(c.Context())
+	if err != nil {
+		return fiber.NewError(fiber.StatusInternalServerError, "Failed to check system status")
+	}
+	return c.JSON(fiber.Map{
+		"initialized": initialized,
+	})
+}

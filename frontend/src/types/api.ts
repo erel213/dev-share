@@ -29,3 +29,21 @@ export interface Environment {
   createdAt: string
   updatedAt: string
 }
+
+export interface AdminInitRequest {
+  admin_name: string
+  admin_email: string
+  admin_password: string
+  workspace_name: string
+  workspace_description?: string
+}
+
+export interface AdminInitResponse {
+  message: string
+  workspace_id: string
+  admin_user_id: string
+}
+
+export interface SystemStatus {
+  initialized: boolean
+}
