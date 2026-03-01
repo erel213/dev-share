@@ -86,3 +86,11 @@ func (s *AdminService) InitializeSystem(
 		AdminUserID: adminUser.BaseUser.ID,
 	}, nil
 }
+
+func (s *AdminService) IsInitialized(ctx context.Context) (bool, error) {
+	count, err := s.userRepository.Count(ctx)
+	if err != nil {
+		return false, err
+	}
+	return count > 0, nil
+}

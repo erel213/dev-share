@@ -13,11 +13,9 @@ import (
 	"backend/pkg/validation"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/gofiber/fiber/v2/middleware/logger"
 	"github.com/gofiber/fiber/v2/middleware/recover"
-	"github.com/golang-migrate/migrate/v4"
-	_ "github.com/golang-migrate/migrate/v4/database/sqlite"
-	_ "github.com/golang-migrate/migrate/v4/source/file"
 )
 
 func main() {
@@ -43,23 +41,6 @@ func main() {
 	defer db.Close()
 
 	slog.Info("successfully connected to database")
-
-	// Run migrations
-	// TODO: Consider moving the logic for running migrations to onboarding package
-	migrationsPath := getEnv("MIGRATIONS_PATH", "internal/infra/migrations/sqlite")
-	m, err := migrate.New(
-		"file://"+migrationsPath,
-		"sqlite://"+dbConfig.FilePath,
-	)
-	if err != nil {
-		slog.Error("migration init failed", "error", err)
-		os.Exit(1)
-	}
-	if err := m.Up(); err != nil && err != migrate.ErrNoChange {
-		slog.Error("migration failed", "error", err)
-		os.Exit(1)
-	}
-	slog.Info("migrations applied")
 
 	// Initialize validation service
 	validator := validation.New()
@@ -98,6 +79,10 @@ func main() {
 	// Middleware
 	app.Use(logger.New())
 	app.Use(recover.New())
+	app.Use(cors.New(cors.Config{
+		AllowOrigins:     "http://localhost:5173,http://localhost:3000",
+		AllowCredentials: true,
+	}))
 
 	// Health check endpoint
 	app.Get("/health", func(c *fiber.Ctx) error {
@@ -108,7 +93,8 @@ func main() {
 		})
 	})
 
-	// Admin initialization endpoint (unprotected, first-time only)
+	// Admin endpoints (unprotected, first-time only)
+	app.Get("/admin/status", adminHandler.GetSystemStatus)
 	app.Post("/admin/init", adminHandler.InitializeSystem)
 
 	// API routes
