@@ -8,6 +8,13 @@ import (
 	"github.com/google/uuid"
 )
 
+// defaultFiles returns a minimal set of valid template files for testing.
+func defaultFiles() map[string]string {
+	return map[string]string{
+		"main.tf": `resource "null_resource" "example" {}`,
+	}
+}
+
 // setupWorkspaceForTemplates creates a real workspace and returns an auth context
 // whose WorkspaceID matches the created workspace (required by the template service's
 // workspace-isolation checks).
@@ -37,7 +44,7 @@ func setupWorkspaceForTemplates(t *testing.T) (AuthContext, *WorkspaceResponse) 
 func TestCreateTemplate_Success(t *testing.T) {
 	auth, workspace := setupWorkspaceForTemplates(t)
 
-	template, status := CreateTemplate(t, auth, "My Template", workspace.ID, "/path/to/template")
+	template, status := CreateTemplate(t, auth, "My Template", workspace.ID, defaultFiles())
 
 	if status != http.StatusCreated {
 		t.Fatalf("expected status 201, got %d", status)
@@ -52,8 +59,10 @@ func TestCreateTemplate_Success(t *testing.T) {
 	if template.WorkspaceID != workspace.ID {
 		t.Errorf("expected workspace ID %s, got %s", workspace.ID, template.WorkspaceID)
 	}
-	if template.Path != "/path/to/template" {
-		t.Errorf("expected path '/path/to/template', got '%s'", template.Path)
+	// Path should be auto-computed as workspace_id/template_id
+	expectedPath := workspace.ID.String() + "/" + template.ID.String()
+	if template.Path != expectedPath {
+		t.Errorf("expected path '%s', got '%s'", expectedPath, template.Path)
 	}
 	if template.CreatedAt.IsZero() {
 		t.Error("expected non-zero CreatedAt")
@@ -69,32 +78,38 @@ func TestCreateTemplate_ValidationErrors(t *testing.T) {
 	tests := []struct {
 		name       string
 		tmplName   string
-		path       string
+		files      map[string]string
 		wantStatus int
 	}{
 		{
 			name:       "missing name",
 			tmplName:   "",
-			path:       "/valid/path",
+			files:      defaultFiles(),
 			wantStatus: http.StatusBadRequest,
 		},
 		{
 			name:       "name too short",
 			tmplName:   "ab",
-			path:       "/valid/path",
+			files:      defaultFiles(),
 			wantStatus: http.StatusBadRequest,
 		},
 		{
-			name:       "missing path",
+			name:       "no files",
 			tmplName:   "Valid Name",
-			path:       "",
+			files:      map[string]string{},
+			wantStatus: http.StatusBadRequest,
+		},
+		{
+			name:       "invalid file extension",
+			tmplName:   "Valid Name",
+			files:      map[string]string{"readme.txt": "hello"},
 			wantStatus: http.StatusBadRequest,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, status := CreateTemplate(t, auth, tt.tmplName, workspace.ID, tt.path)
+			_, status := CreateTemplate(t, auth, tt.tmplName, workspace.ID, tt.files)
 			if status != tt.wantStatus {
 				t.Errorf("expected status %d, got %d", tt.wantStatus, status)
 			}
@@ -106,8 +121,8 @@ func TestCreateTemplate_ForbiddenOtherWorkspace(t *testing.T) {
 	auth, _ := setupWorkspaceForTemplates(t)
 	_, otherWorkspace := setupWorkspaceForTemplates(t)
 
-	// JWT workspace differs from the requested workspace_id → 403
-	_, status := CreateTemplate(t, auth, "Forbidden Template", otherWorkspace.ID, "/path")
+	// JWT workspace differs from the requested workspace_id -> 403
+	_, status := CreateTemplate(t, auth, "Forbidden Template", otherWorkspace.ID, defaultFiles())
 
 	if status != http.StatusForbidden {
 		t.Errorf("expected status 403, got %d", status)
@@ -118,7 +133,7 @@ func TestCreateTemplate_ForbiddenOtherWorkspace(t *testing.T) {
 
 func TestGetTemplate_Success(t *testing.T) {
 	auth, workspace := setupWorkspaceForTemplates(t)
-	created, _ := CreateTemplate(t, auth, "Get Test Template", workspace.ID, "/path/to/template")
+	created, _ := CreateTemplate(t, auth, "Get Test Template", workspace.ID, defaultFiles())
 
 	fetched, status := GetTemplate(t, auth, created.ID)
 
@@ -170,7 +185,7 @@ func TestGetTemplate_ForbiddenOtherWorkspace(t *testing.T) {
 	auth, workspace := setupWorkspaceForTemplates(t)
 	otherAuth, _ := setupWorkspaceForTemplates(t)
 
-	created, _ := CreateTemplate(t, auth, "Workspace A Template", workspace.ID, "/path")
+	created, _ := CreateTemplate(t, auth, "Workspace A Template", workspace.ID, defaultFiles())
 
 	_, status := GetTemplate(t, otherAuth, created.ID)
 
@@ -184,8 +199,8 @@ func TestGetTemplate_ForbiddenOtherWorkspace(t *testing.T) {
 func TestGetTemplatesByWorkspace_Success(t *testing.T) {
 	auth, workspace := setupWorkspaceForTemplates(t)
 
-	CreateTemplate(t, auth, "Workspace Template 1", workspace.ID, "/path/1")
-	CreateTemplate(t, auth, "Workspace Template 2", workspace.ID, "/path/2")
+	CreateTemplate(t, auth, "Workspace Template 1", workspace.ID, defaultFiles())
+	CreateTemplate(t, auth, "Workspace Template 2", workspace.ID, defaultFiles())
 
 	templates, status := GetTemplatesByWorkspace(t, auth, workspace.ID)
 
@@ -230,18 +245,15 @@ func TestGetTemplatesByWorkspace_Forbidden(t *testing.T) {
 
 func TestUpdateTemplate_Success(t *testing.T) {
 	auth, workspace := setupWorkspaceForTemplates(t)
-	created, _ := CreateTemplate(t, auth, "Original Name", workspace.ID, "/original/path")
+	created, _ := CreateTemplate(t, auth, "Original Name", workspace.ID, defaultFiles())
 
-	updated, status := UpdateTemplate(t, auth, created.ID, "Updated Name", "/updated/path")
+	updated, status := UpdateTemplate(t, auth, created.ID, "Updated Name")
 
 	if status != http.StatusOK {
 		t.Fatalf("expected status 200, got %d", status)
 	}
 	if updated.Name != "Updated Name" {
 		t.Errorf("expected name 'Updated Name', got '%s'", updated.Name)
-	}
-	if updated.Path != "/updated/path" {
-		t.Errorf("expected path '/updated/path', got '%s'", updated.Path)
 	}
 	if updated.ID != created.ID {
 		t.Errorf("ID should not change: expected %s, got %s", created.ID, updated.ID)
@@ -256,10 +268,10 @@ func TestUpdateTemplate_Success(t *testing.T) {
 
 func TestUpdateTemplate_PartialUpdate(t *testing.T) {
 	auth, workspace := setupWorkspaceForTemplates(t)
-	created, _ := CreateTemplate(t, auth, "Partial Update Template", workspace.ID, "/original/path")
+	created, _ := CreateTemplate(t, auth, "Partial Update Template", workspace.ID, defaultFiles())
 
 	// Update only the name; path should remain unchanged.
-	updated, status := UpdateTemplate(t, auth, created.ID, "New Name Only", "")
+	updated, status := UpdateTemplate(t, auth, created.ID, "New Name Only")
 
 	if status != http.StatusOK {
 		t.Fatalf("expected status 200, got %d", status)
@@ -275,7 +287,7 @@ func TestUpdateTemplate_PartialUpdate(t *testing.T) {
 func TestUpdateTemplate_NotFound(t *testing.T) {
 	auth, _ := setupWorkspaceForTemplates(t)
 
-	_, status := UpdateTemplate(t, auth, uuid.New(), "New Name", "/new/path")
+	_, status := UpdateTemplate(t, auth, uuid.New(), "New Name")
 
 	if status != http.StatusNotFound {
 		t.Errorf("expected status 404, got %d", status)
@@ -286,9 +298,9 @@ func TestUpdateTemplate_ForbiddenOtherWorkspace(t *testing.T) {
 	auth, workspace := setupWorkspaceForTemplates(t)
 	otherAuth, _ := setupWorkspaceForTemplates(t)
 
-	created, _ := CreateTemplate(t, auth, "Other WS Template", workspace.ID, "/path")
+	created, _ := CreateTemplate(t, auth, "Other WS Template", workspace.ID, defaultFiles())
 
-	_, status := UpdateTemplate(t, otherAuth, created.ID, "Forbidden Update", "/forbidden/path")
+	_, status := UpdateTemplate(t, otherAuth, created.ID, "Forbidden Update")
 
 	if status != http.StatusForbidden {
 		t.Errorf("expected status 403, got %d", status)
@@ -299,7 +311,7 @@ func TestUpdateTemplate_ForbiddenOtherWorkspace(t *testing.T) {
 
 func TestDeleteTemplate_Success(t *testing.T) {
 	auth, workspace := setupWorkspaceForTemplates(t)
-	created, _ := CreateTemplate(t, auth, "To Delete Template", workspace.ID, "/path/to/delete")
+	created, _ := CreateTemplate(t, auth, "To Delete Template", workspace.ID, defaultFiles())
 
 	status := DeleteTemplate(t, auth, created.ID)
 
@@ -327,7 +339,7 @@ func TestDeleteTemplate_ForbiddenOtherWorkspace(t *testing.T) {
 	auth, workspace := setupWorkspaceForTemplates(t)
 	otherAuth, _ := setupWorkspaceForTemplates(t)
 
-	created, _ := CreateTemplate(t, auth, "Forbidden Delete Template", workspace.ID, "/path")
+	created, _ := CreateTemplate(t, auth, "Forbidden Delete Template", workspace.ID, defaultFiles())
 
 	status := DeleteTemplate(t, otherAuth, created.ID)
 
@@ -341,9 +353,9 @@ func TestDeleteTemplate_ForbiddenOtherWorkspace(t *testing.T) {
 func TestListTemplates_Success(t *testing.T) {
 	auth, workspace := setupWorkspaceForTemplates(t)
 
-	CreateTemplate(t, auth, "List Template 1", workspace.ID, "/path/1")
-	CreateTemplate(t, auth, "List Template 2", workspace.ID, "/path/2")
-	CreateTemplate(t, auth, "List Template 3", workspace.ID, "/path/3")
+	CreateTemplate(t, auth, "List Template 1", workspace.ID, defaultFiles())
+	CreateTemplate(t, auth, "List Template 2", workspace.ID, defaultFiles())
+	CreateTemplate(t, auth, "List Template 3", workspace.ID, defaultFiles())
 
 	templates, status := ListTemplates(t, auth, 10, 0, "", "")
 
@@ -359,8 +371,8 @@ func TestListTemplates_FilteredByWorkspace(t *testing.T) {
 	authA, workspaceA := setupWorkspaceForTemplates(t)
 	authB, workspaceB := setupWorkspaceForTemplates(t)
 
-	CreateTemplate(t, authA, "Workspace A Template", workspaceA.ID, "/path/a")
-	CreateTemplate(t, authB, "Workspace B Template", workspaceB.ID, "/path/b")
+	CreateTemplate(t, authA, "Workspace A Template", workspaceA.ID, defaultFiles())
+	CreateTemplate(t, authB, "Workspace B Template", workspaceB.ID, defaultFiles())
 
 	// Listing from workspace A's context must not include workspace B's templates.
 	templates, status := ListTemplates(t, authA, 100, 0, "", "")

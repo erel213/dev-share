@@ -12,6 +12,7 @@ import (
 
 	"backend/internal/application"
 	handlererrors "backend/internal/application/errors"
+	"backend/internal/infra/filestorage"
 	"backend/internal/infra/http/handlers"
 	"backend/internal/infra/http/middleware"
 	"backend/internal/infra/sqlite"
@@ -86,9 +87,13 @@ func TestMain(m *testing.M) {
 		os.Exit(1)
 	}
 
+	// Create temp directory for template file storage
+	templateStorageDir := filepath.Join(tmpDir, "template_storage")
+	fileStorage := filestorage.NewLocalFileStorage(templateStorageDir)
+
 	uowFactory := sqlite.NewUnitOfWorkFactory(DbConnection)
 	repoFactory := sqlite.NewRepositoryFactory()
-	serviceFactory := application.NewServiceFactory(uowFactory, repoFactory, validator)
+	serviceFactory := application.NewServiceFactory(uowFactory, repoFactory, validator, fileStorage)
 
 	// Build the Fiber app (mirrors cmd/server/main.go).
 	app := fiber.New(fiber.Config{

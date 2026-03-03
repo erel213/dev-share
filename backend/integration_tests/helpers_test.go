@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"mime/multipart"
 	"net/http"
 	"testing"
 	"time"
@@ -299,18 +300,29 @@ type TemplateResponse struct {
 	UpdatedAt   time.Time `json:"updated_at"`
 }
 
-func CreateTemplate(t *testing.T, auth AuthContext, name string, workspaceID uuid.UUID, path string) (*TemplateResponse, int) {
+// CreateTemplate sends a multipart form request to create a template with files.
+// The files parameter maps filename to content (e.g., {"main.tf": "resource {}"}).
+func CreateTemplate(t *testing.T, auth AuthContext, name string, workspaceID uuid.UUID, files map[string]string) (*TemplateResponse, int) {
 	t.Helper()
 
-	payload := map[string]interface{}{
-		"name":         name,
-		"workspace_id": workspaceID,
-		"path":         path,
+	var buf bytes.Buffer
+	writer := multipart.NewWriter(&buf)
+
+	writer.WriteField("name", name)
+	writer.WriteField("workspace_id", workspaceID.String())
+
+	for filename, content := range files {
+		part, err := writer.CreateFormFile("files", filename)
+		if err != nil {
+			t.Fatalf("failed to create form file: %v", err)
+		}
+		part.Write([]byte(content))
 	}
 
-	body, _ := json.Marshal(payload)
-	req, _ := http.NewRequest(http.MethodPost, BaseURL+"/api/v1/templates", bytes.NewReader(body))
-	req.Header.Set("Content-Type", "application/json")
+	writer.Close()
+
+	req, _ := http.NewRequest(http.MethodPost, BaseURL+"/api/v1/templates", &buf)
+	req.Header.Set("Content-Type", writer.FormDataContentType())
 	addAuth(t, req, auth)
 
 	resp, err := HTTPClient.Do(req)
@@ -328,6 +340,38 @@ func CreateTemplate(t *testing.T, auth AuthContext, name string, workspaceID uui
 	}
 
 	return nil, resp.StatusCode
+}
+
+// CreateTemplateRaw sends a multipart form request and returns the raw response for error inspection.
+func CreateTemplateRaw(t *testing.T, auth AuthContext, name string, workspaceID uuid.UUID, files map[string]string) (*http.Response, int) {
+	t.Helper()
+
+	var buf bytes.Buffer
+	writer := multipart.NewWriter(&buf)
+
+	writer.WriteField("name", name)
+	writer.WriteField("workspace_id", workspaceID.String())
+
+	for filename, content := range files {
+		part, err := writer.CreateFormFile("files", filename)
+		if err != nil {
+			t.Fatalf("failed to create form file: %v", err)
+		}
+		part.Write([]byte(content))
+	}
+
+	writer.Close()
+
+	req, _ := http.NewRequest(http.MethodPost, BaseURL+"/api/v1/templates", &buf)
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+	addAuth(t, req, auth)
+
+	resp, err := HTTPClient.Do(req)
+	if err != nil {
+		t.Fatalf("failed to create template: %v", err)
+	}
+
+	return resp, resp.StatusCode
 }
 
 func GetTemplate(t *testing.T, auth AuthContext, id uuid.UUID) (*TemplateResponse, int) {
@@ -376,15 +420,12 @@ func GetTemplatesByWorkspace(t *testing.T, auth AuthContext, workspaceID uuid.UU
 	return nil, resp.StatusCode
 }
 
-func UpdateTemplate(t *testing.T, auth AuthContext, id uuid.UUID, name, path string) (*TemplateResponse, int) {
+func UpdateTemplate(t *testing.T, auth AuthContext, id uuid.UUID, name string) (*TemplateResponse, int) {
 	t.Helper()
 
 	payload := map[string]interface{}{}
 	if name != "" {
 		payload["name"] = name
-	}
-	if path != "" {
-		payload["path"] = path
 	}
 
 	body, _ := json.Marshal(payload)
