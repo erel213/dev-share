@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"backend/internal/application"
+	"backend/internal/domain/storage"
 	"backend/internal/infra/http/middleware"
 	"backend/pkg/contracts"
 
@@ -32,12 +33,39 @@ func (h *TemplateHandler) RegisterRoutes(router fiber.Router) {
 func (h *TemplateHandler) CreateTemplate(c *fiber.Ctx) error {
 	var request contracts.CreateTemplate
 
-	if err := c.BodyParser(&request); err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, "Invalid request body")
+	request.Name = c.FormValue("name")
+	workspaceIDStr := c.FormValue("workspace_id")
+	if workspaceIDStr != "" {
+		wid, err := uuid.Parse(workspaceIDStr)
+		if err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, "Invalid workspace_id")
+		}
+		request.WorkspaceID = wid
+	}
+
+	// Parse uploaded files
+	form, err := c.MultipartForm()
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "Invalid multipart form")
+	}
+
+	var fileInputs []storage.FileInput
+	for _, fh := range form.File["files"] {
+		f, err := fh.Open()
+		if err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, "Failed to read uploaded file: "+fh.Filename)
+		}
+		defer f.Close()
+
+		fileInputs = append(fileInputs, storage.FileInput{
+			Name:   fh.Filename,
+			Reader: f,
+			Size:   fh.Size,
+		})
 	}
 
 	service := h.serviceFactory()
-	template, serviceErr := service.CreateTemplate(middleware.ContextWithClaims(c), request)
+	template, serviceErr := service.CreateTemplate(middleware.ContextWithClaims(c), request, fileInputs)
 	if serviceErr != nil {
 		return serviceErr
 	}

@@ -6,6 +6,7 @@ import (
 
 	"backend/internal/application"
 	handlererrors "backend/internal/application/errors"
+	"backend/internal/infra/filestorage"
 	"backend/internal/infra/http/handlers"
 	"backend/internal/infra/http/middleware"
 	"backend/internal/infra/sqlite"
@@ -58,12 +59,17 @@ func main() {
 	}
 	slog.Info("JWT service initialized")
 
+	// File storage
+	templateStoragePath := getEnv("TEMPLATE_STORAGE_PATH", "./template_storage")
+	fileStorage := filestorage.NewLocalFileStorage(templateStoragePath)
+	slog.Info("file storage initialized", "path", templateStoragePath)
+
 	// Infrastructure factories
 	uowFactory := sqlite.NewUnitOfWorkFactory(db)
 	repoFactory := sqlite.NewRepositoryFactory()
 
 	// Application-layer service factory
-	serviceFactory := application.NewServiceFactory(uowFactory, repoFactory, validator)
+	serviceFactory := application.NewServiceFactory(uowFactory, repoFactory, validator, fileStorage)
 
 	// Initialize handlers — method values satisfy the handler's func() (Service, UnitOfWork) field
 	userHandler := handlers.NewUserHandler(serviceFactory.NewUserService)
@@ -74,6 +80,7 @@ func main() {
 	app := fiber.New(fiber.Config{
 		AppName:      "Dev-Share Backend",
 		ErrorHandler: handlererrors.ErrorHandler(),
+		BodyLimit:    10 * 1024 * 1024, // 10MB
 	})
 
 	// Middleware

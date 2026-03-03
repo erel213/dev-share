@@ -4,15 +4,13 @@ import "github.com/google/uuid"
 
 type (
 	CreateTemplate struct {
-		Name        string    `json:"name" validate:"required,min=3,max=255"`
-		WorkspaceID uuid.UUID `json:"workspace_id" validate:"required,uuid4"`
-		Path        string    `json:"path" validate:"required,min=1"`
+		Name        string    `form:"name" validate:"required,min=3,max=255"`
+		WorkspaceID uuid.UUID `form:"workspace_id" validate:"required,uuid4"`
 	}
 
 	UpdateTemplate struct {
 		ID   uuid.UUID `json:"id" validate:"required,uuid4"`
 		Name string    `json:"name" validate:"omitempty,min=3,max=255"`
-		Path string    `json:"path" validate:"omitempty,min=1"`
 	}
 
 	GetTemplate struct {
