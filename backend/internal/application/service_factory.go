@@ -2,6 +2,7 @@ package application
 
 import (
 	apphandlers "backend/internal/application/handlers"
+	"backend/internal/domain/storage"
 	"backend/pkg/validation"
 )
 
@@ -9,14 +10,16 @@ type ServiceFactory struct {
 	uowFactory  apphandlers.UnitOfWorkFactory
 	repoFactory apphandlers.RepositoryFactory
 	validator   *validation.Service
+	fileStorage storage.FileStorage
 }
 
 func NewServiceFactory(
 	uowFactory apphandlers.UnitOfWorkFactory,
 	repoFactory apphandlers.RepositoryFactory,
 	validator *validation.Service,
+	fileStorage storage.FileStorage,
 ) *ServiceFactory {
-	return &ServiceFactory{uowFactory: uowFactory, repoFactory: repoFactory, validator: validator}
+	return &ServiceFactory{uowFactory: uowFactory, repoFactory: repoFactory, validator: validator, fileStorage: fileStorage}
 }
 
 func (f *ServiceFactory) NewUserService() (UserService, apphandlers.UnitOfWork) {
@@ -35,6 +38,7 @@ func (f *ServiceFactory) NewTemplateService() TemplateService {
 		f.repoFactory.CreateTemplateRepository(uow),
 		f.repoFactory.CreateWorkspaceRepository(uow),
 		f.validator,
+		f.fileStorage,
 	)
 }
 

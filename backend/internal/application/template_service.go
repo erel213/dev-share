@@ -2,11 +2,15 @@ package application
 
 import (
 	"context"
+	"log/slog"
+	"path/filepath"
+	"strings"
 	"time"
 
 	apperrors "backend/internal/application/errors"
 	"backend/internal/domain"
 	"backend/internal/domain/repository"
+	"backend/internal/domain/storage"
 	"backend/pkg/contracts"
 	"backend/pkg/errors"
 	"backend/pkg/jwt"
@@ -15,22 +19,33 @@ import (
 	"github.com/google/uuid"
 )
 
+var allowedExtensions = map[string]bool{
+	".tf":     true,
+	".tfvars": true,
+	".hcl":    true,
+	".json":   true,
+}
+
+const maxFileSize int64 = 1 * 1024 * 1024 // 1MB
+
 type TemplateService struct {
 	templateRepository  repository.TemplateRepository
 	workspaceRepository repository.WorkspaceRepository
 	validator           *validation.Service
+	fileStorage         storage.FileStorage
 }
 
-func NewTemplateService(templateRepo repository.TemplateRepository, workspaceRepository repository.WorkspaceRepository, validator *validation.Service) TemplateService {
+func NewTemplateService(templateRepo repository.TemplateRepository, workspaceRepository repository.WorkspaceRepository, validator *validation.Service, fileStorage storage.FileStorage) TemplateService {
 	return TemplateService{
 		templateRepository:  templateRepo,
 		workspaceRepository: workspaceRepository,
 		validator:           validator,
+		fileStorage:         fileStorage,
 	}
 }
 
-// CreateTemplate creates a new template with the provided details
-func (s TemplateService) CreateTemplate(ctx context.Context, request contracts.CreateTemplate) (*domain.Template, *errors.Error) {
+// CreateTemplate creates a new template with the provided details and uploaded files
+func (s TemplateService) CreateTemplate(ctx context.Context, request contracts.CreateTemplate, files []storage.FileInput) (*domain.Template, *errors.Error) {
 	claims, ok := jwt.ClaimsFromContext(ctx)
 	if !ok {
 		return nil, apperrors.ReturnUnauthorized("missing JWT claims in context")
@@ -43,9 +58,41 @@ func (s TemplateService) CreateTemplate(ctx context.Context, request contracts.C
 		return nil, err
 	}
 
-	template := domain.NewTemplate(request.Name, request.WorkspaceID, request.Path)
+	// Validate files
+	if len(files) == 0 {
+		return nil, apperrors.ReturnBadRequest("at least one file is required")
+	}
 
+	for _, f := range files {
+		// Check for path traversal
+		if strings.Contains(f.Name, "..") || strings.Contains(f.Name, "/") || strings.Contains(f.Name, "\\") {
+			return nil, apperrors.ReturnBadRequest("invalid file name: " + f.Name)
+		}
+
+		// Check allowed extensions
+		ext := strings.ToLower(filepath.Ext(f.Name))
+		if !allowedExtensions[ext] {
+			return nil, apperrors.ReturnBadRequest("file extension not allowed: " + ext + " (allowed: .tf, .tfvars, .hcl, .json)")
+		}
+
+		// Check file size
+		if f.Size > maxFileSize {
+			return nil, apperrors.ReturnBadRequest("file too large: " + f.Name + " (max 1MB)")
+		}
+	}
+
+	template := domain.NewTemplate(request.Name, request.WorkspaceID)
+
+	// Save files to storage
+	if err := s.fileStorage.SaveFiles(template.Path, files); err != nil {
+		return nil, err
+	}
+
+	// Save to DB; on failure, cleanup files
 	if err := s.templateRepository.Create(ctx, *template); err != nil {
+		if cleanupErr := s.fileStorage.DeleteDir(template.Path); cleanupErr != nil {
+			slog.Error("failed to cleanup files after DB error", "path", template.Path, "error", cleanupErr)
+		}
 		return nil, err
 	}
 
@@ -119,9 +166,6 @@ func (s TemplateService) UpdateTemplate(ctx context.Context, request contracts.U
 	if request.Name != "" {
 		template.Name = request.Name
 	}
-	if request.Path != "" {
-		template.Path = request.Path
-	}
 
 	// Update timestamp
 	template.UpdatedAt = time.Now()
@@ -156,7 +200,16 @@ func (s TemplateService) DeleteTemplate(ctx context.Context, request contracts.D
 		return apperrors.ReturnForbidden("template does not belong to your workspace")
 	}
 
-	return s.templateRepository.Delete(ctx, request.ID)
+	if err := s.templateRepository.Delete(ctx, request.ID); err != nil {
+		return err
+	}
+
+	// Best-effort cleanup of files
+	if cleanupErr := s.fileStorage.DeleteDir(template.Path); cleanupErr != nil {
+		slog.Error("failed to cleanup template files after delete", "path", template.Path, "error", cleanupErr)
+	}
+
+	return nil
 }
 
 // ListTemplates retrieves a paginated list of templates for the user's workspace
