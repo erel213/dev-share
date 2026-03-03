@@ -1,6 +1,7 @@
 package domain
 
 import (
+	"path/filepath"
 	"time"
 
 	"github.com/google/uuid"
@@ -15,13 +16,14 @@ type Template struct {
 	UpdatedAt   time.Time `json:"updated_at"`
 }
 
-func NewTemplate(name string, workspaceID uuid.UUID, path string) *Template {
+func NewTemplate(name string, workspaceID uuid.UUID) *Template {
 	now := time.Now()
+	id := uuid.New()
 	return &Template{
-		ID:          uuid.New(),
+		ID:          id,
 		Name:        name,
 		WorkspaceID: workspaceID,
-		Path:        path,
+		Path:        filepath.Join(workspaceID.String(), id.String()),
 		CreatedAt:   now,
 		UpdatedAt:   now,
 	}
