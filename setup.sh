@@ -171,7 +171,7 @@ fi
 
 # ── 10. Open browser ─────────────────────────────────────────────────
 
-FRONTEND_URL="http://localhost:${FRONTEND_PORT}"
+FRONTEND_URL="http://localhost:${FRONTEND_PORT}/setup"
 
 STATUS=$(curl -s "http://localhost:${PORT}/admin/status")
 INITIALIZED=$(echo "$STATUS" | grep -o '"initialized":[a-z]*' | cut -d: -f2)

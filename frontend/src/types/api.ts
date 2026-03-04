@@ -6,10 +6,8 @@ export interface ApiError {
 
 export interface User {
   id: string
-  email: string
   name: string
-  createdAt: string
-  updatedAt: string
+  workspaceId: string
 }
 
 export interface Workspace {
@@ -42,6 +40,12 @@ export interface AdminInitResponse {
   message: string
   workspace_id: string
   admin_user_id: string
+}
+
+export interface LoginResponse {
+  user_id: string
+  name: string
+  workspace_id: string
 }
 
 export interface SystemStatus {
