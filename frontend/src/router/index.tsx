@@ -1,14 +1,41 @@
 import { createBrowserRouter } from 'react-router-dom'
 import HomePage from '@/pages/HomePage'
 import SetupPage from '@/pages/SetupPage'
+import LoginPage from '@/pages/LoginPage'
+import WorkspacesPage from '@/pages/WorkspacesPage'
+import TemplatesPage from '@/pages/TemplatesPage'
+import ProtectedRoute from '@/components/layout/ProtectedRoute'
+import AppLayout from '@/components/layout/AppLayout'
 
 export const router = createBrowserRouter([
   {
-    path: '/',
-    element: <HomePage />,
-  },
-  {
     path: '/setup',
     element: <SetupPage />,
+  },
+  {
+    path: '/login',
+    element: <LoginPage />,
+  },
+  {
+    element: <ProtectedRoute />,
+    children: [
+      {
+        element: <AppLayout />,
+        children: [
+          {
+            path: '/',
+            element: <HomePage />,
+          },
+          {
+            path: '/workspaces',
+            element: <WorkspacesPage />,
+          },
+          {
+            path: '/templates',
+            element: <TemplatesPage />,
+          },
+        ],
+      },
+    ],
   },
 ])
