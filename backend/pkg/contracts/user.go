@@ -9,4 +9,9 @@ type (
 		Password    string    `json:"password" validate:"required,min=8,strongpassword"`
 		WorkspaceID uuid.UUID `json:"workspace_id" validate:"required,uuid4"`
 	}
+
+	LoginLocalUser struct {
+		Email    string `json:"email" validate:"required,email"`
+		Password string `json:"password" validate:"required"`
+	}
 )

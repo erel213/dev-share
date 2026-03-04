@@ -270,6 +270,43 @@ func CreateUser(t *testing.T, name, email, password string, workspaceID uuid.UUI
 	return nil, resp.StatusCode
 }
 
+type LoginResponse struct {
+	UserID uuid.UUID `json:"user_id"`
+}
+
+func LoginUser(t *testing.T, email, password string) (*http.Response, *LoginResponse, int) {
+	t.Helper()
+
+	payload := map[string]interface{}{
+		"email":    email,
+		"password": password,
+	}
+
+	body, _ := json.Marshal(payload)
+	resp, err := HTTPClient.Post(
+		BaseURL+"/api/v1/login",
+		"application/json",
+		bytes.NewReader(body),
+	)
+	if err != nil {
+		t.Fatalf("failed to login: %v", err)
+	}
+
+	status := resp.StatusCode
+	if status == http.StatusOK {
+		var login LoginResponse
+		if err := json.NewDecoder(resp.Body).Decode(&login); err != nil {
+			resp.Body.Close()
+			t.Fatalf("failed to decode login response: %v", err)
+		}
+		resp.Body.Close()
+		return resp, &login, status
+	}
+
+	resp.Body.Close()
+	return resp, nil, status
+}
+
 // ReadErrorResponse reads and decodes an error response
 func ReadErrorResponse(t *testing.T, resp *http.Response) *ErrorResponse {
 	t.Helper()
