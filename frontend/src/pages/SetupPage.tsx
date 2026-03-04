@@ -35,12 +35,14 @@ export default function SetupPage() {
   const [workspaceDescription, setWorkspaceDescription] = useState('')
 
   useEffect(() => {
+    console.log('Checking system status...')
     api
       .get<SystemStatus>('/admin/status')
       .then((res) => {
         if (res.data.initialized) {
           navigate('/', { replace: true })
         } else {
+          console.log('System not initialized, showing setup page')
           setLoading(false)
         }
       })
