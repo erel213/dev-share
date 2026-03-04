@@ -34,6 +34,10 @@ func (h *UserHandler) RegisterRoutes(router fiber.Router) {
 	router.Post("/login", h.Login)
 }
 
+func (h *UserHandler) RegisterProtectedRoutes(router fiber.Router) {
+	router.Get("/me", h.Me)
+}
+
 // CreateUser handles POST /api/v1/users
 func (h *UserHandler) CreateUser(c *fiber.Ctx) error {
 	var request contracts.CreateLocalUser
@@ -90,6 +94,22 @@ func (h *UserHandler) Login(c *fiber.Ctx) error {
 	middleware.SetTokenCookie(c, token, h.cookieCfg)
 
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
-		"user_id": user.ID,
+		"user_id":      user.ID,
+		"name":         user.Name,
+		"workspace_id": user.WorkspaceID,
+	})
+}
+
+// Me handles GET /api/v1/me
+func (h *UserHandler) Me(c *fiber.Ctx) error {
+	claims, ok := middleware.GetClaims(c)
+	if !ok {
+		return fiber.NewError(fiber.StatusUnauthorized, "missing claims")
+	}
+
+	return c.JSON(fiber.Map{
+		"user_id":      claims.ID,
+		"name":         claims.Name,
+		"workspace_id": claims.WorkspaceID,
 	})
 }

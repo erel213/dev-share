@@ -117,6 +117,7 @@ func main() {
 	userHandler.RegisterRoutes(api)
 
 	protected := api.Group("", middleware.RequireAuth(jwtService, jwt.DefaultCookieConfig()))
+	userHandler.RegisterProtectedRoutes(protected)
 	workspaceHandler.RegisterRoutes(protected)
 	templateHandler.RegisterRoutes(protected)
 
