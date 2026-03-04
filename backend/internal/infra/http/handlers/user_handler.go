@@ -31,6 +31,7 @@ func NewUserHandler(serviceFactory func() (application.UserService, apphandlers.
 
 func (h *UserHandler) RegisterRoutes(router fiber.Router) {
 	router.Post("/users", h.CreateUser)
+	router.Post("/login", h.Login)
 }
 
 // CreateUser handles POST /api/v1/users
@@ -62,6 +63,33 @@ func (h *UserHandler) CreateUser(c *fiber.Ctx) error {
 
 	return c.Status(fiber.StatusCreated).JSON(fiber.Map{
 		"message": "User created successfully",
+		"user_id": user.ID,
+	})
+}
+
+// Login handles POST /api/v1/login
+func (h *UserHandler) Login(c *fiber.Ctx) error {
+	var request contracts.LoginLocalUser
+
+	if err := c.BodyParser(&request); err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "Invalid request body")
+	}
+
+	service, _ := h.serviceFactory()
+
+	user, serviceErr := service.AuthenticateLocalUser(c.Context(), request)
+	if serviceErr != nil {
+		return serviceErr
+	}
+
+	token, err := h.jwtService.GenerateToken(user.ID.String(), user.Name, user.WorkspaceID.String())
+	if err != nil {
+		return err
+	}
+
+	middleware.SetTokenCookie(c, token, h.cookieCfg)
+
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{
 		"user_id": user.ID,
 	})
 }
