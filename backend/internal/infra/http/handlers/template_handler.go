@@ -113,14 +113,30 @@ func (h *TemplateHandler) UpdateTemplate(c *fiber.Ctx) error {
 	}
 
 	var request contracts.UpdateTemplate
-	if err := c.BodyParser(&request); err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, "Invalid request body")
-	}
-
+	request.Name = c.FormValue("name")
 	request.ID = id
 
+	// Parse uploaded files
+	var fileInputs []storage.FileInput
+	form, err := c.MultipartForm()
+	if err == nil && form != nil {
+		for _, fh := range form.File["files"] {
+			f, err := fh.Open()
+			if err != nil {
+				return fiber.NewError(fiber.StatusBadRequest, "Failed to read uploaded file: "+fh.Filename)
+			}
+			defer f.Close()
+
+			fileInputs = append(fileInputs, storage.FileInput{
+				Name:   fh.Filename,
+				Reader: f,
+				Size:   fh.Size,
+			})
+		}
+	}
+
 	service := h.serviceFactory()
-	template, serviceErr := service.UpdateTemplate(middleware.ContextWithClaims(c), request)
+	template, serviceErr := service.UpdateTemplate(middleware.ContextWithClaims(c), request, fileInputs)
 	if serviceErr != nil {
 		return serviceErr
 	}
