@@ -9,8 +9,8 @@ type (
 	}
 
 	UpdateTemplate struct {
-		ID   uuid.UUID `json:"id" validate:"required,uuid4"`
-		Name string    `json:"name" validate:"omitempty,min=3,max=255"`
+		ID   uuid.UUID `form:"id" validate:"required,uuid4"`
+		Name string    `form:"name" validate:"omitempty,min=3,max=255"`
 	}
 
 	GetTemplate struct {

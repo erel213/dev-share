@@ -140,8 +140,8 @@ func (s TemplateService) GetTemplatesByWorkspace(ctx context.Context, request co
 	return s.templateRepository.GetByWorkspaceID(ctx, request.WorkspaceID)
 }
 
-// UpdateTemplate updates an existing template
-func (s TemplateService) UpdateTemplate(ctx context.Context, request contracts.UpdateTemplate) (*domain.Template, *errors.Error) {
+// UpdateTemplate updates an existing template and optionally adds files
+func (s TemplateService) UpdateTemplate(ctx context.Context, request contracts.UpdateTemplate, files []storage.FileInput) (*domain.Template, *errors.Error) {
 	claims, ok := jwt.ClaimsFromContext(ctx)
 	if !ok {
 		return nil, apperrors.ReturnUnauthorized("missing JWT claims in context")
@@ -160,6 +160,28 @@ func (s TemplateService) UpdateTemplate(ctx context.Context, request contracts.U
 	// Verify the template belongs to the user's workspace
 	if template.WorkspaceID.String() != claims.WorkspaceID {
 		return nil, apperrors.ReturnForbidden("template does not belong to your workspace")
+	}
+
+	// Validate and save additional files
+	for _, f := range files {
+		if strings.Contains(f.Name, "..") || strings.Contains(f.Name, "/") || strings.Contains(f.Name, "\\") {
+			return nil, apperrors.ReturnBadRequest("invalid file name: " + f.Name)
+		}
+
+		ext := strings.ToLower(filepath.Ext(f.Name))
+		if !allowedExtensions[ext] {
+			return nil, apperrors.ReturnBadRequest("file extension not allowed: " + ext + " (allowed: .tf, .tfvars, .hcl, .json)")
+		}
+
+		if f.Size > maxFileSize {
+			return nil, apperrors.ReturnBadRequest("file too large: " + f.Name + " (max 1MB)")
+		}
+	}
+
+	if len(files) > 0 {
+		if err := s.fileStorage.SaveFiles(template.Path, files); err != nil {
+			return nil, err
+		}
 	}
 
 	// Update non-empty fields

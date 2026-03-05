@@ -457,17 +457,30 @@ func GetTemplatesByWorkspace(t *testing.T, auth AuthContext, workspaceID uuid.UU
 	return nil, resp.StatusCode
 }
 
-func UpdateTemplate(t *testing.T, auth AuthContext, id uuid.UUID, name string) (*TemplateResponse, int) {
+func UpdateTemplate(t *testing.T, auth AuthContext, id uuid.UUID, name string, files ...map[string]string) (*TemplateResponse, int) {
 	t.Helper()
 
-	payload := map[string]interface{}{}
+	var buf bytes.Buffer
+	writer := multipart.NewWriter(&buf)
+
 	if name != "" {
-		payload["name"] = name
+		writer.WriteField("name", name)
 	}
 
-	body, _ := json.Marshal(payload)
-	req, _ := http.NewRequest(http.MethodPut, fmt.Sprintf("%s/api/v1/templates/%s", BaseURL, id), bytes.NewReader(body))
-	req.Header.Set("Content-Type", "application/json")
+	if len(files) > 0 {
+		for filename, content := range files[0] {
+			part, err := writer.CreateFormFile("files", filename)
+			if err != nil {
+				t.Fatalf("failed to create form file: %v", err)
+			}
+			part.Write([]byte(content))
+		}
+	}
+
+	writer.Close()
+
+	req, _ := http.NewRequest(http.MethodPut, fmt.Sprintf("%s/api/v1/templates/%s", BaseURL, id), &buf)
+	req.Header.Set("Content-Type", writer.FormDataContentType())
 	addAuth(t, req, auth)
 
 	resp, err := HTTPClient.Do(req)
