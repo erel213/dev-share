@@ -48,6 +48,15 @@ export interface LoginResponse {
   workspace_id: string
 }
 
+export interface Template {
+  id: string
+  name: string
+  workspace_id: string
+  path: string
+  created_at: string
+  updated_at: string
+}
+
 export interface SystemStatus {
   initialized: boolean
 }
