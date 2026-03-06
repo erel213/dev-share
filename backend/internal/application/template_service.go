@@ -255,6 +255,73 @@ func (s TemplateService) ListTemplates(ctx context.Context, request contracts.Li
 	return s.templateRepository.GetByWorkspaceID(ctx, workspaceID)
 }
 
+// ListTemplateFiles returns the list of files for a given template
+func (s TemplateService) ListTemplateFiles(ctx context.Context, request contracts.ListTemplateFiles) ([]contracts.TemplateFileInfo, *errors.Error) {
+	claims, ok := jwt.ClaimsFromContext(ctx)
+	if !ok {
+		return nil, apperrors.ReturnUnauthorized("missing JWT claims in context")
+	}
+
+	if err := s.validator.Validate(request); err != nil {
+		return nil, err
+	}
+
+	template, err := s.templateRepository.GetByID(ctx, request.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	if template.WorkspaceID.String() != claims.WorkspaceID {
+		return nil, apperrors.ReturnForbidden("template does not belong to your workspace")
+	}
+
+	files, err := s.fileStorage.ListFiles(template.Path)
+	if err != nil {
+		return nil, err
+	}
+
+	result := make([]contracts.TemplateFileInfo, len(files))
+	for i, f := range files {
+		result[i] = contracts.TemplateFileInfo{Name: f.Name, Size: f.Size}
+	}
+
+	return result, nil
+}
+
+// GetTemplateFileContent returns the content of a specific file within a template
+func (s TemplateService) GetTemplateFileContent(ctx context.Context, request contracts.GetTemplateFileContent) ([]byte, *errors.Error) {
+	claims, ok := jwt.ClaimsFromContext(ctx)
+	if !ok {
+		return nil, apperrors.ReturnUnauthorized("missing JWT claims in context")
+	}
+
+	if err := s.validator.Validate(request); err != nil {
+		return nil, err
+	}
+
+	// Reject path traversal attempts
+	if strings.Contains(request.Filename, "..") || strings.Contains(request.Filename, "/") || strings.Contains(request.Filename, "\\") {
+		return nil, apperrors.ReturnBadRequest("invalid filename")
+	}
+
+	// Verify allowed extension
+	ext := strings.ToLower(filepath.Ext(request.Filename))
+	if !allowedExtensions[ext] {
+		return nil, apperrors.ReturnBadRequest("file extension not allowed: " + ext)
+	}
+
+	template, err := s.templateRepository.GetByID(ctx, request.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	if template.WorkspaceID.String() != claims.WorkspaceID {
+		return nil, apperrors.ReturnForbidden("template does not belong to your workspace")
+	}
+
+	return s.fileStorage.ReadFile(filepath.Join(template.Path, request.Filename))
+}
+
 // parseWorkspaceID converts a workspace ID string to uuid.UUID
 func parseWorkspaceID(workspaceIDStr string) (uuid.UUID, error) {
 	return uuid.Parse(workspaceIDStr)

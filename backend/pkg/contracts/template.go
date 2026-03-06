@@ -31,4 +31,18 @@ type (
 	DeleteTemplate struct {
 		ID uuid.UUID `json:"id" validate:"required,uuid4"`
 	}
+
+	ListTemplateFiles struct {
+		ID uuid.UUID `json:"id" validate:"required,uuid4"`
+	}
+
+	GetTemplateFileContent struct {
+		ID       uuid.UUID `json:"id" validate:"required,uuid4"`
+		Filename string    `json:"filename" validate:"required"`
+	}
+
+	TemplateFileInfo struct {
+		Name string `json:"name"`
+		Size int64  `json:"size"`
+	}
 )

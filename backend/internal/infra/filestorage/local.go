@@ -84,3 +84,17 @@ func (s *LocalFileStorage) ListFiles(dirPath string) ([]storage.FileInfo, *pkger
 
 	return files, nil
 }
+
+func (s *LocalFileStorage) ReadFile(filePath string) ([]byte, *pkgerrors.Error) {
+	fullPath := filepath.Join(s.basePath, filePath)
+
+	data, err := os.ReadFile(fullPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, apperrors.ReturnNotFound("file not found")
+		}
+		return nil, apperrors.ReturnInternalError("failed to read file")
+	}
+
+	return data, nil
+}
