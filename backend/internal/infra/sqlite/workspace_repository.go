@@ -24,10 +24,6 @@ func newWorkspaceRepository(uow *UnitOfWork) repository.WorkspaceRepository {
 }
 
 func (r *workspaceRepository) Create(ctx context.Context, workspace *domain.Workspace) *pkgerrors.Error {
-	if workspace.ID == uuid.Nil {
-		workspace.ID = uuid.New()
-	}
-
 	query, args, err := builder.
 		Insert("workspaces").
 		Columns("id", "name", "description", "admin_id").
