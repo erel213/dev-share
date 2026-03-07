@@ -52,15 +52,19 @@ func (h *TemplateHandler) CreateTemplate(c *fiber.Ctx) error {
 	}
 
 	var fileInputs []storage.FileInput
-	for _, fh := range form.File["files"] {
+	paths := form.Value["paths"]
+	if len(paths) != len(form.File["files"]) {
+		return fiber.NewError(fiber.StatusBadRequest, "Number of paths must match number of files")
+	}
+	for i, fh := range form.File["files"] {
 		f, err := fh.Open()
 		if err != nil {
-			return fiber.NewError(fiber.StatusBadRequest, "Failed to read uploaded file: "+fh.Filename)
+			return fiber.NewError(fiber.StatusBadRequest, "Failed to read uploaded file: "+paths[i])
 		}
 		defer f.Close()
 
 		fileInputs = append(fileInputs, storage.FileInput{
-			Name:   fh.Filename,
+			Name:   paths[i],
 			Reader: f,
 			Size:   fh.Size,
 		})
@@ -122,15 +126,19 @@ func (h *TemplateHandler) UpdateTemplate(c *fiber.Ctx) error {
 	var fileInputs []storage.FileInput
 	form, err := c.MultipartForm()
 	if err == nil && form != nil {
-		for _, fh := range form.File["files"] {
+		paths := form.Value["paths"]
+		if len(paths) != len(form.File["files"]) {
+			return fiber.NewError(fiber.StatusBadRequest, "Number of paths must match number of files")
+		}
+		for i, fh := range form.File["files"] {
 			f, err := fh.Open()
 			if err != nil {
-				return fiber.NewError(fiber.StatusBadRequest, "Failed to read uploaded file: "+fh.Filename)
+				return fiber.NewError(fiber.StatusBadRequest, "Failed to read uploaded file: "+paths[i])
 			}
 			defer f.Close()
 
 			fileInputs = append(fileInputs, storage.FileInput{
-				Name:   fh.Filename,
+				Name:   paths[i],
 				Reader: f,
 				Size:   fh.Size,
 			})

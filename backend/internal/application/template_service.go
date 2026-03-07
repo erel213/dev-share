@@ -28,6 +28,18 @@ var allowedExtensions = map[string]bool{
 
 const maxFileSize int64 = 1 * 1024 * 1024 // 1MB
 
+// validateFilePath checks that a file path is safe (no traversal, no backslash, no absolute paths).
+func validateFilePath(name string) *errors.Error {
+	if strings.Contains(name, "..") || strings.Contains(name, "\\") {
+		return apperrors.ReturnBadRequest("invalid file name: " + name)
+	}
+	cleaned := filepath.Clean(name)
+	if filepath.IsAbs(cleaned) {
+		return apperrors.ReturnBadRequest("invalid file name: " + name)
+	}
+	return nil
+}
+
 type TemplateService struct {
 	templateRepository  repository.TemplateRepository
 	workspaceRepository repository.WorkspaceRepository
@@ -64,18 +76,15 @@ func (s TemplateService) CreateTemplate(ctx context.Context, request contracts.C
 	}
 
 	for _, f := range files {
-		// Check for path traversal
-		if strings.Contains(f.Name, "..") || strings.Contains(f.Name, "/") || strings.Contains(f.Name, "\\") {
-			return nil, apperrors.ReturnBadRequest("invalid file name: " + f.Name)
+		if err := validateFilePath(f.Name); err != nil {
+			return nil, err
 		}
 
-		// Check allowed extensions
 		ext := strings.ToLower(filepath.Ext(f.Name))
 		if !allowedExtensions[ext] {
 			return nil, apperrors.ReturnBadRequest("file extension not allowed: " + ext + " (allowed: .tf, .tfvars, .hcl, .json)")
 		}
 
-		// Check file size
 		if f.Size > maxFileSize {
 			return nil, apperrors.ReturnBadRequest("file too large: " + f.Name + " (max 1MB)")
 		}
@@ -164,8 +173,8 @@ func (s TemplateService) UpdateTemplate(ctx context.Context, request contracts.U
 
 	// Validate and save additional files
 	for _, f := range files {
-		if strings.Contains(f.Name, "..") || strings.Contains(f.Name, "/") || strings.Contains(f.Name, "\\") {
-			return nil, apperrors.ReturnBadRequest("invalid file name: " + f.Name)
+		if err := validateFilePath(f.Name); err != nil {
+			return nil, err
 		}
 
 		ext := strings.ToLower(filepath.Ext(f.Name))
@@ -299,12 +308,10 @@ func (s TemplateService) GetTemplateFileContent(ctx context.Context, request con
 		return nil, err
 	}
 
-	// Reject path traversal attempts
-	if strings.Contains(request.Filename, "..") || strings.Contains(request.Filename, "/") || strings.Contains(request.Filename, "\\") {
-		return nil, apperrors.ReturnBadRequest("invalid filename")
+	if err := validateFilePath(request.Filename); err != nil {
+		return nil, err
 	}
 
-	// Verify allowed extension
 	ext := strings.ToLower(filepath.Ext(request.Filename))
 	if !allowedExtensions[ext] {
 		return nil, apperrors.ReturnBadRequest("file extension not allowed: " + ext)

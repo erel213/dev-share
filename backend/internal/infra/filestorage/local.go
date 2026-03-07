@@ -2,6 +2,7 @@ package filestorage
 
 import (
 	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
 
@@ -27,6 +28,10 @@ func (s *LocalFileStorage) SaveFiles(dirPath string, files []storage.FileInput) 
 
 	for _, f := range files {
 		filePath := filepath.Join(fullPath, f.Name)
+
+		if err := os.MkdirAll(filepath.Dir(filePath), 0755); err != nil {
+			return apperrors.ReturnInternalError("failed to create directory for file: " + f.Name)
+		}
 
 		dst, err := os.Create(filePath)
 		if err != nil {
@@ -59,8 +64,7 @@ func (s *LocalFileStorage) DeleteDir(dirPath string) *pkgerrors.Error {
 func (s *LocalFileStorage) ListFiles(dirPath string) ([]storage.FileInfo, *pkgerrors.Error) {
 	fullPath := filepath.Join(s.basePath, dirPath)
 
-	entries, err := os.ReadDir(fullPath)
-	if err != nil {
+	if _, err := os.Stat(fullPath); err != nil {
 		if os.IsNotExist(err) {
 			return nil, nil
 		}
@@ -68,18 +72,29 @@ func (s *LocalFileStorage) ListFiles(dirPath string) ([]storage.FileInfo, *pkger
 	}
 
 	var files []storage.FileInfo
-	for _, entry := range entries {
-		if entry.IsDir() {
-			continue
-		}
-		info, err := entry.Info()
+	err := filepath.WalkDir(fullPath, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
-			continue
+			return err
+		}
+		if d.IsDir() {
+			return nil
+		}
+		info, infoErr := d.Info()
+		if infoErr != nil {
+			return nil
+		}
+		relPath, relErr := filepath.Rel(fullPath, path)
+		if relErr != nil {
+			return nil
 		}
 		files = append(files, storage.FileInfo{
-			Name: entry.Name(),
+			Name: filepath.ToSlash(relPath),
 			Size: info.Size(),
 		})
+		return nil
+	})
+	if err != nil {
+		return nil, apperrors.ReturnInternalError("failed to list template files")
 	}
 
 	return files, nil

@@ -349,6 +349,7 @@ func CreateTemplate(t *testing.T, auth AuthContext, name string, workspaceID uui
 	writer.WriteField("workspace_id", workspaceID.String())
 
 	for filename, content := range files {
+		writer.WriteField("paths", filename)
 		part, err := writer.CreateFormFile("files", filename)
 		if err != nil {
 			t.Fatalf("failed to create form file: %v", err)
@@ -390,6 +391,7 @@ func CreateTemplateRaw(t *testing.T, auth AuthContext, name string, workspaceID 
 	writer.WriteField("workspace_id", workspaceID.String())
 
 	for filename, content := range files {
+		writer.WriteField("paths", filename)
 		part, err := writer.CreateFormFile("files", filename)
 		if err != nil {
 			t.Fatalf("failed to create form file: %v", err)
@@ -469,6 +471,7 @@ func UpdateTemplate(t *testing.T, auth AuthContext, id uuid.UUID, name string, f
 
 	if len(files) > 0 {
 		for filename, content := range files[0] {
+			writer.WriteField("paths", filename)
 			part, err := writer.CreateFormFile("files", filename)
 			if err != nil {
 				t.Fatalf("failed to create form file: %v", err)
