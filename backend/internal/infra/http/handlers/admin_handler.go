@@ -5,18 +5,29 @@ import (
 
 	"backend/internal/application"
 	apphandlers "backend/internal/application/handlers"
+	"backend/internal/infra/http/middleware"
 	"backend/pkg/contracts"
+	"backend/pkg/jwt"
 
 	"github.com/gofiber/fiber/v2"
 )
 
 type AdminHandler struct {
 	serviceFactory func() (*application.AdminService, apphandlers.UnitOfWork)
+	jwtService     *jwt.Service
+	cookieCfg      jwt.CookieConfig
 }
 
 func NewAdminHandler(serviceFactory func() (*application.AdminService, apphandlers.UnitOfWork)) *AdminHandler {
+	jwtService, err := jwt.NewService()
+	if err != nil {
+		panic("failed to initialize JWT service: " + err.Error())
+	}
+	cookieCfg := jwt.DefaultCookieConfig()
 	return &AdminHandler{
 		serviceFactory: serviceFactory,
+		jwtService:     jwtService,
+		cookieCfg:      cookieCfg,
 	}
 }
 
@@ -45,6 +56,13 @@ func (h *AdminHandler) InitializeSystem(c *fiber.Ctx) error {
 	if serviceErr != nil {
 		return serviceErr
 	}
+	token, err := h.jwtService.GenerateToken(response.AdminUserID.String(), response.UserName, response.WorkspaceID.String())
+	if err != nil {
+		return err
+	}
+
+	// Set JWT cookie
+	middleware.SetTokenCookie(c, token, h.cookieCfg)
 
 	// Return 201 Created with response
 	return c.Status(fiber.StatusCreated).JSON(response)
