@@ -23,7 +23,7 @@ func NewTemplateHandler(serviceFactory func() application.TemplateService) *Temp
 func (h *TemplateHandler) RegisterRoutes(router fiber.Router) {
 	router.Post("/templates", h.CreateTemplate)
 	router.Get("/templates/workspace/:workspace_id", h.GetTemplatesByWorkspace)
-	router.Get("/templates/:id/files/:filename", h.GetTemplateFileContent)
+	router.Get("/templates/:id/files/content", h.GetTemplateFileContent)
 	router.Get("/templates/:id/files", h.ListTemplateFiles)
 	router.Get("/templates/:id", h.GetTemplate)
 	router.Put("/templates/:id", h.UpdateTemplate)
@@ -185,16 +185,16 @@ func (h *TemplateHandler) ListTemplateFiles(c *fiber.Ctx) error {
 	return c.JSON(files)
 }
 
-// GetTemplateFileContent handles GET /api/v1/templates/:id/files/:filename
+// GetTemplateFileContent handles GET /api/v1/templates/:id/files/content?path=...
 func (h *TemplateHandler) GetTemplateFileContent(c *fiber.Ctx) error {
 	id, err := uuid.Parse(c.Params("id"))
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, "Invalid template ID")
 	}
 
-	filename := c.Params("filename")
+	filename := c.Query("path")
 	if filename == "" {
-		return fiber.NewError(fiber.StatusBadRequest, "Filename is required")
+		return fiber.NewError(fiber.StatusBadRequest, "path query parameter is required")
 	}
 
 	service := h.serviceFactory()

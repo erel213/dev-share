@@ -518,6 +518,51 @@ func DeleteTemplate(t *testing.T, auth AuthContext, id uuid.UUID) int {
 	return resp.StatusCode
 }
 
+type TemplateFileInfoResponse struct {
+	Name string `json:"name"`
+	Size int64  `json:"size"`
+}
+
+func ListTemplateFiles(t *testing.T, auth AuthContext, templateID uuid.UUID) ([]TemplateFileInfoResponse, int) {
+	t.Helper()
+
+	req, _ := http.NewRequest(http.MethodGet, fmt.Sprintf("%s/api/v1/templates/%s/files", BaseURL, templateID), nil)
+	addAuth(t, req, auth)
+
+	resp, err := HTTPClient.Do(req)
+	if err != nil {
+		t.Fatalf("failed to list template files: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusOK {
+		var files []TemplateFileInfoResponse
+		if err := json.NewDecoder(resp.Body).Decode(&files); err != nil {
+			t.Fatalf("failed to decode template files response: %v", err)
+		}
+		return files, resp.StatusCode
+	}
+
+	return nil, resp.StatusCode
+}
+
+func GetTemplateFileContent(t *testing.T, auth AuthContext, templateID uuid.UUID, path string) (string, int) {
+	t.Helper()
+
+	url := fmt.Sprintf("%s/api/v1/templates/%s/files/content?path=%s", BaseURL, templateID, path)
+	req, _ := http.NewRequest(http.MethodGet, url, nil)
+	addAuth(t, req, auth)
+
+	resp, err := HTTPClient.Do(req)
+	if err != nil {
+		t.Fatalf("failed to get template file content: %v", err)
+	}
+	defer resp.Body.Close()
+
+	bodyBytes, _ := io.ReadAll(resp.Body)
+	return string(bodyBytes), resp.StatusCode
+}
+
 func ListTemplates(t *testing.T, auth AuthContext, limit, offset int, sortBy, order string) ([]*TemplateResponse, int) {
 	t.Helper()
 
