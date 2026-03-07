@@ -15,6 +15,17 @@ func defaultFiles() map[string]string {
 	}
 }
 
+// nestedFiles returns a set of template files with directory structure for testing.
+func nestedFiles() map[string]string {
+	return map[string]string{
+		"main.tf":              `module "vpc" { source = "./modules/vpc" }`,
+		"variables.tf":         `variable "region" { default = "us-east-1" }`,
+		"modules/vpc/main.tf":  `resource "aws_vpc" "main" {}`,
+		"modules/vpc/vars.tf":  `variable "cidr" {}`,
+		"modules/ec2/main.tf":  `resource "aws_instance" "main" {}`,
+	}
+}
+
 // setupWorkspaceForTemplates creates a real workspace and returns an auth context
 // whose WorkspaceID matches the created workspace (required by the template service's
 // workspace-isolation checks).
@@ -384,6 +395,85 @@ func TestListTemplates_FilteredByWorkspace(t *testing.T) {
 		if tmpl.WorkspaceID == workspaceB.ID {
 			t.Errorf("workspace B template should not appear in workspace A's list")
 		}
+	}
+}
+
+// --- Nested files ---
+
+func TestCreateTemplate_NestedFiles(t *testing.T) {
+	auth, workspace := setupWorkspaceForTemplates(t)
+
+	template, status := CreateTemplate(t, auth, "Nested Template", workspace.ID, nestedFiles())
+	if status != http.StatusCreated {
+		t.Fatalf("expected status 201, got %d", status)
+	}
+	if template.ID == uuid.Nil {
+		t.Error("expected non-nil template ID")
+	}
+}
+
+func TestListTemplateFiles_Nested(t *testing.T) {
+	auth, workspace := setupWorkspaceForTemplates(t)
+
+	created, status := CreateTemplate(t, auth, "Nested List Template", workspace.ID, nestedFiles())
+	if status != http.StatusCreated {
+		t.Fatalf("expected status 201, got %d", status)
+	}
+
+	files, listStatus := ListTemplateFiles(t, auth, created.ID)
+	if listStatus != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", listStatus)
+	}
+
+	expectedNames := map[string]bool{
+		"main.tf":             true,
+		"variables.tf":        true,
+		"modules/vpc/main.tf": true,
+		"modules/vpc/vars.tf": true,
+		"modules/ec2/main.tf": true,
+	}
+
+	if len(files) != len(expectedNames) {
+		t.Fatalf("expected %d files, got %d", len(expectedNames), len(files))
+	}
+
+	for _, f := range files {
+		if !expectedNames[f.Name] {
+			t.Errorf("unexpected file: %s", f.Name)
+		}
+	}
+}
+
+func TestGetTemplateFileContent_NestedPath(t *testing.T) {
+	auth, workspace := setupWorkspaceForTemplates(t)
+
+	created, status := CreateTemplate(t, auth, "Nested Content Template", workspace.ID, nestedFiles())
+	if status != http.StatusCreated {
+		t.Fatalf("expected status 201, got %d", status)
+	}
+
+	content, contentStatus := GetTemplateFileContent(t, auth, created.ID, "modules/vpc/main.tf")
+	if contentStatus != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", contentStatus)
+	}
+
+	expected := `resource "aws_vpc" "main" {}`
+	if content != expected {
+		t.Errorf("expected content %q, got %q", expected, content)
+	}
+}
+
+func TestGetTemplateFileContent_PathTraversal(t *testing.T) {
+	auth, workspace := setupWorkspaceForTemplates(t)
+
+	created, status := CreateTemplate(t, auth, "Traversal Template", workspace.ID, defaultFiles())
+	if status != http.StatusCreated {
+		t.Fatalf("expected status 201, got %d", status)
+	}
+
+	_, contentStatus := GetTemplateFileContent(t, auth, created.ID, "../../etc/passwd")
+	if contentStatus != http.StatusBadRequest {
+		t.Errorf("expected status 400 for path traversal, got %d", contentStatus)
 	}
 }
 

@@ -28,6 +28,18 @@ var allowedExtensions = map[string]bool{
 
 const maxFileSize int64 = 1 * 1024 * 1024 // 1MB
 
+// validateFilePath checks that a file path is safe (no traversal, no backslash, no absolute paths).
+func validateFilePath(name string) *errors.Error {
+	if strings.Contains(name, "..") || strings.Contains(name, "\\") {
+		return apperrors.ReturnBadRequest("invalid file name: " + name)
+	}
+	cleaned := filepath.Clean(name)
+	if filepath.IsAbs(cleaned) {
+		return apperrors.ReturnBadRequest("invalid file name: " + name)
+	}
+	return nil
+}
+
 type TemplateService struct {
 	templateRepository  repository.TemplateRepository
 	workspaceRepository repository.WorkspaceRepository
@@ -64,18 +76,15 @@ func (s TemplateService) CreateTemplate(ctx context.Context, request contracts.C
 	}
 
 	for _, f := range files {
-		// Check for path traversal
-		if strings.Contains(f.Name, "..") || strings.Contains(f.Name, "/") || strings.Contains(f.Name, "\\") {
-			return nil, apperrors.ReturnBadRequest("invalid file name: " + f.Name)
+		if err := validateFilePath(f.Name); err != nil {
+			return nil, err
 		}
 
-		// Check allowed extensions
 		ext := strings.ToLower(filepath.Ext(f.Name))
 		if !allowedExtensions[ext] {
 			return nil, apperrors.ReturnBadRequest("file extension not allowed: " + ext + " (allowed: .tf, .tfvars, .hcl, .json)")
 		}
 
-		// Check file size
 		if f.Size > maxFileSize {
 			return nil, apperrors.ReturnBadRequest("file too large: " + f.Name + " (max 1MB)")
 		}
@@ -164,8 +173,8 @@ func (s TemplateService) UpdateTemplate(ctx context.Context, request contracts.U
 
 	// Validate and save additional files
 	for _, f := range files {
-		if strings.Contains(f.Name, "..") || strings.Contains(f.Name, "/") || strings.Contains(f.Name, "\\") {
-			return nil, apperrors.ReturnBadRequest("invalid file name: " + f.Name)
+		if err := validateFilePath(f.Name); err != nil {
+			return nil, err
 		}
 
 		ext := strings.ToLower(filepath.Ext(f.Name))
@@ -253,6 +262,71 @@ func (s TemplateService) ListTemplates(ctx context.Context, request contracts.Li
 
 	// List templates filtered by the user's workspace
 	return s.templateRepository.GetByWorkspaceID(ctx, workspaceID)
+}
+
+// ListTemplateFiles returns the list of files for a given template
+func (s TemplateService) ListTemplateFiles(ctx context.Context, request contracts.ListTemplateFiles) ([]contracts.TemplateFileInfo, *errors.Error) {
+	claims, ok := jwt.ClaimsFromContext(ctx)
+	if !ok {
+		return nil, apperrors.ReturnUnauthorized("missing JWT claims in context")
+	}
+
+	if err := s.validator.Validate(request); err != nil {
+		return nil, err
+	}
+
+	template, err := s.templateRepository.GetByID(ctx, request.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	if template.WorkspaceID.String() != claims.WorkspaceID {
+		return nil, apperrors.ReturnForbidden("template does not belong to your workspace")
+	}
+
+	files, err := s.fileStorage.ListFiles(template.Path)
+	if err != nil {
+		return nil, err
+	}
+
+	result := make([]contracts.TemplateFileInfo, len(files))
+	for i, f := range files {
+		result[i] = contracts.TemplateFileInfo{Name: f.Name, Size: f.Size}
+	}
+
+	return result, nil
+}
+
+// GetTemplateFileContent returns the content of a specific file within a template
+func (s TemplateService) GetTemplateFileContent(ctx context.Context, request contracts.GetTemplateFileContent) ([]byte, *errors.Error) {
+	claims, ok := jwt.ClaimsFromContext(ctx)
+	if !ok {
+		return nil, apperrors.ReturnUnauthorized("missing JWT claims in context")
+	}
+
+	if err := s.validator.Validate(request); err != nil {
+		return nil, err
+	}
+
+	if err := validateFilePath(request.Filename); err != nil {
+		return nil, err
+	}
+
+	ext := strings.ToLower(filepath.Ext(request.Filename))
+	if !allowedExtensions[ext] {
+		return nil, apperrors.ReturnBadRequest("file extension not allowed: " + ext)
+	}
+
+	template, err := s.templateRepository.GetByID(ctx, request.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	if template.WorkspaceID.String() != claims.WorkspaceID {
+		return nil, apperrors.ReturnForbidden("template does not belong to your workspace")
+	}
+
+	return s.fileStorage.ReadFile(filepath.Join(template.Path, request.Filename))
 }
 
 // parseWorkspaceID converts a workspace ID string to uuid.UUID

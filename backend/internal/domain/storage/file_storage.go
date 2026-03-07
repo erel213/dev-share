@@ -21,4 +21,5 @@ type FileStorage interface {
 	SaveFiles(dirPath string, files []FileInput) *pkgerrors.Error
 	DeleteDir(dirPath string) *pkgerrors.Error
 	ListFiles(dirPath string) ([]FileInfo, *pkgerrors.Error)
+	ReadFile(filePath string) ([]byte, *pkgerrors.Error)
 }

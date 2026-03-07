@@ -4,6 +4,7 @@ import SetupPage from '@/pages/SetupPage'
 import LoginPage from '@/pages/LoginPage'
 import WorkspacesPage from '@/pages/WorkspacesPage'
 import TemplatesPage from '@/pages/TemplatesPage'
+import TemplateBrowserPage from '@/pages/TemplateBrowserPage'
 import ProtectedRoute from '@/components/layout/ProtectedRoute'
 import AppLayout from '@/components/layout/AppLayout'
 
@@ -33,6 +34,10 @@ export const router = createBrowserRouter([
           {
             path: '/templates',
             element: <TemplatesPage />,
+          },
+          {
+            path: '/templates/:id',
+            element: <TemplateBrowserPage />,
           },
         ],
       },

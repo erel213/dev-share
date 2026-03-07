@@ -14,4 +14,5 @@ type AdminInitResponse struct {
 	Message     string    `json:"message"`
 	WorkspaceID uuid.UUID `json:"workspace_id"`
 	AdminUserID uuid.UUID `json:"admin_user_id"`
+	UserName    string    `json:"admin_user_name"`
 }
