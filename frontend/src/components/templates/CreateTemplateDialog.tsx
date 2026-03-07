@@ -9,7 +9,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import FileDropzone from '@/components/templates/FileDropzone'
+import FileDropzone, { type FileWithPath } from '@/components/templates/FileDropzone'
 import { createTemplate } from '@/lib/templates-api'
 import type { ApiError } from '@/types/api'
 
@@ -27,7 +27,7 @@ export default function CreateTemplateDialog({
   onSuccess,
 }: CreateTemplateDialogProps) {
   const [name, setName] = useState('')
-  const [files, setFiles] = useState<File[]>([])
+  const [files, setFiles] = useState<FileWithPath[]>([])
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 

@@ -57,6 +57,11 @@ export interface Template {
   updated_at: string
 }
 
+export interface TemplateFileInfo {
+  name: string
+  size: number
+}
+
 export interface SystemStatus {
   initialized: boolean
 }

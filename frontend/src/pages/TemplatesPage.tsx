@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { Plus, Pencil, Trash2 } from 'lucide-react'
 import { useAppSelector } from '@/store'
 import { selectUser } from '@/store/authSlice'
@@ -42,7 +43,7 @@ export default function TemplatesPage() {
     setLoading(true)
     try {
       const data = await getWorkspaceTemplates(user.workspaceId)
-      setTemplates(data)
+      data ? setTemplates(data) : setTemplates([])
     } catch (err) {
       const apiError = err as ApiError
       setError(apiError.message || 'Failed to load templates')
@@ -112,7 +113,14 @@ export default function TemplatesPage() {
             ) : (
               templates.map((t) => (
                 <TableRow key={t.id}>
-                  <TableCell className="font-medium">{t.name}</TableCell>
+                  <TableCell className="font-medium">
+                    <Link
+                      to={`/templates/${t.id}`}
+                      className="hover:underline"
+                    >
+                      {t.name}
+                    </Link>
+                  </TableCell>
                   <TableCell>{formatDate(t.created_at)}</TableCell>
                   <TableCell>{formatDate(t.updated_at)}</TableCell>
                   <TableCell>
