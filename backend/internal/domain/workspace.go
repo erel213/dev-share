@@ -17,8 +17,11 @@ type Workspace struct {
 
 func NewWorkspace(name string, description string, adminId *uuid.UUID) *Workspace {
 	return &Workspace{
+		ID:          uuid.New(),
 		Name:        name,
 		Description: description,
 		AdminID:     adminId,
+		CreatedAt:   time.Now(),
+		UpdatedAt:   time.Now(),
 	}
 }

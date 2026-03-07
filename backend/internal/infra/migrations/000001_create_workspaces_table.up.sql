@@ -1,5 +1,5 @@
 CREATE TABLE IF NOT EXISTS workspaces (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id UUID PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
     description TEXT,
     admin_id UUID NOT NULL,
