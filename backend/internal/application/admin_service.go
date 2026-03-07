@@ -84,6 +84,7 @@ func (s *AdminService) InitializeSystem(
 		Message:     "System initialized successfully",
 		WorkspaceID: workspace.ID,
 		AdminUserID: adminUser.BaseUser.ID,
+		UserName:    adminUser.Name,
 	}, nil
 }
 
