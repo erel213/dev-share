@@ -22,3 +22,15 @@ func (f *repositoryFactory) CreateWorkspaceRepository(uow apphandlers.UnitOfWork
 func (f *repositoryFactory) CreateTemplateRepository(uow apphandlers.UnitOfWork) repository.TemplateRepository {
 	return newTemplateRepository(uow.(*UnitOfWork))
 }
+
+func (f *repositoryFactory) CreateEnvironmentRepository(uow apphandlers.UnitOfWork) repository.EnvironmentRepository {
+	return newEnvironmentRepository(uow.(*UnitOfWork))
+}
+
+func (f *repositoryFactory) CreateTemplateVariableRepository(uow apphandlers.UnitOfWork) repository.TemplateVariableRepository {
+	return newTemplateVariableRepository(uow.(*UnitOfWork))
+}
+
+func (f *repositoryFactory) CreateEnvironmentVariableValueRepository(uow apphandlers.UnitOfWork) repository.EnvironmentVariableValueRepository {
+	return newEnvironmentVariableValueRepository(uow.(*UnitOfWork))
+}

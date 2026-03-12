@@ -3,6 +3,8 @@ package application
 import (
 	apphandlers "backend/internal/application/handlers"
 	"backend/internal/domain/storage"
+	"backend/internal/infra/tfparser"
+	"backend/pkg/crypto"
 	"backend/pkg/validation"
 )
 
@@ -11,6 +13,8 @@ type ServiceFactory struct {
 	repoFactory apphandlers.RepositoryFactory
 	validator   *validation.Service
 	fileStorage storage.FileStorage
+	encryptor   crypto.Encryptor
+	tfParser    tfparser.TFParser
 }
 
 func NewServiceFactory(
@@ -18,8 +22,17 @@ func NewServiceFactory(
 	repoFactory apphandlers.RepositoryFactory,
 	validator *validation.Service,
 	fileStorage storage.FileStorage,
+	encryptor crypto.Encryptor,
+	tfParser tfparser.TFParser,
 ) *ServiceFactory {
-	return &ServiceFactory{uowFactory: uowFactory, repoFactory: repoFactory, validator: validator, fileStorage: fileStorage}
+	return &ServiceFactory{
+		uowFactory:  uowFactory,
+		repoFactory: repoFactory,
+		validator:   validator,
+		fileStorage: fileStorage,
+		encryptor:   encryptor,
+		tfParser:    tfParser,
+	}
 }
 
 func (f *ServiceFactory) NewUserService() (UserService, apphandlers.UnitOfWork) {
@@ -48,4 +61,28 @@ func (f *ServiceFactory) NewAdminService() (*AdminService, apphandlers.UnitOfWor
 	workspaceRepo := f.repoFactory.CreateWorkspaceRepository(uow)
 	userService := NewUserService(userRepo, f.validator)
 	return NewAdminService(workspaceRepo, userService, userRepo, f.validator), uow
+}
+
+func (f *ServiceFactory) NewTemplateVariableService() TemplateVariableService {
+	uow := f.uowFactory.Create()
+	return NewTemplateVariableService(
+		f.repoFactory.CreateTemplateVariableRepository(uow),
+		f.repoFactory.CreateTemplateRepository(uow),
+		f.repoFactory.CreateWorkspaceRepository(uow),
+		f.validator,
+		f.fileStorage,
+		f.tfParser,
+		uow,
+	)
+}
+
+func (f *ServiceFactory) NewEnvironmentVariableValueService() EnvironmentVariableValueService {
+	uow := f.uowFactory.Create()
+	return NewEnvironmentVariableValueService(
+		f.repoFactory.CreateEnvironmentVariableValueRepository(uow),
+		f.repoFactory.CreateTemplateVariableRepository(uow),
+		f.repoFactory.CreateEnvironmentRepository(uow),
+		f.encryptor,
+		f.validator,
+	)
 }

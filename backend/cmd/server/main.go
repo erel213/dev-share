@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/hex"
 	"log/slog"
 	"os"
 
@@ -10,6 +11,8 @@ import (
 	"backend/internal/infra/http/handlers"
 	"backend/internal/infra/http/middleware"
 	"backend/internal/infra/sqlite"
+	"backend/internal/infra/tfparser"
+	"backend/pkg/crypto"
 	"backend/pkg/jwt"
 	"backend/pkg/validation"
 
@@ -64,17 +67,40 @@ func main() {
 	fileStorage := filestorage.NewLocalFileStorage(templateStoragePath)
 	slog.Info("file storage initialized", "path", templateStoragePath)
 
+	// Encryption
+	encryptionKeyHex := getEnv("ENCRYPTION_KEY", "")
+	if encryptionKeyHex == "" {
+		slog.Error("ENCRYPTION_KEY environment variable is required")
+		os.Exit(1)
+	}
+	encryptionKey, err := hex.DecodeString(encryptionKeyHex)
+	if err != nil {
+		slog.Error("ENCRYPTION_KEY must be a valid hex string", "error", err)
+		os.Exit(1)
+	}
+	encryptor, err := crypto.NewAESEncryptor(encryptionKey)
+	if err != nil {
+		slog.Error("failed to initialize encryptor", "error", err)
+		os.Exit(1)
+	}
+	slog.Info("encryption service initialized")
+
+	// TF Parser
+	tfParser := tfparser.NewHCLParser()
+
 	// Infrastructure factories
 	uowFactory := sqlite.NewUnitOfWorkFactory(db)
 	repoFactory := sqlite.NewRepositoryFactory()
 
 	// Application-layer service factory
-	serviceFactory := application.NewServiceFactory(uowFactory, repoFactory, validator, fileStorage)
+	serviceFactory := application.NewServiceFactory(uowFactory, repoFactory, validator, fileStorage, encryptor, tfParser)
 
 	// Initialize handlers — method values satisfy the handler's func() (Service, UnitOfWork) field
 	userHandler := handlers.NewUserHandler(serviceFactory.NewUserService)
 	workspaceHandler := handlers.NewWorkspaceHandler(serviceFactory.NewWorkspaceService)
 	templateHandler := handlers.NewTemplateHandler(serviceFactory.NewTemplateService)
+	templateVariableHandler := handlers.NewTemplateVariableHandler(serviceFactory.NewTemplateVariableService)
+	envVarValueHandler := handlers.NewEnvironmentVariableValueHandler(serviceFactory.NewEnvironmentVariableValueService)
 	adminHandler := handlers.NewAdminHandler(serviceFactory.NewAdminService)
 
 	app := fiber.New(fiber.Config{
@@ -120,6 +146,8 @@ func main() {
 	userHandler.RegisterProtectedRoutes(protected)
 	workspaceHandler.RegisterRoutes(protected)
 	templateHandler.RegisterRoutes(protected)
+	templateVariableHandler.RegisterRoutes(protected)
+	envVarValueHandler.RegisterRoutes(protected)
 
 	// Get port from environment or default to 8080
 	port := getEnv("PORT", "8080")
