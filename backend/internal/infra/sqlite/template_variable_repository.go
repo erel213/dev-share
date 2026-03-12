@@ -76,6 +76,67 @@ func (r *templateVariableRepository) Create(ctx context.Context, variable domain
 	return nil
 }
 
+func (r *templateVariableRepository) CreateBatch(ctx context.Context, variables []domain.TemplateVariable) *pkgerrors.Error {
+	if len(variables) == 0 {
+		return nil
+	}
+
+	q := builder.
+		Insert("template_variables").
+		Columns("id", "template_id", "key", "description", "var_type", "default_value",
+			"is_sensitive", "is_required", "validation_regex", "is_auto_parsed", "display_order")
+
+	for _, v := range variables {
+		q = q.Values(v.ID, v.TemplateID, v.Key,
+			nullString(v.Description), v.VarType, nullString(v.DefaultValue),
+			v.IsSensitive, v.IsRequired, nullString(v.ValidationRegex),
+			v.IsAutoParsed, v.DisplayOrder)
+	}
+
+	query, args, err := q.ToSql()
+	if err != nil {
+		return infraerrors.WrapSQLiteError(err, "create_batch_template_variables")
+	}
+
+	_, err = r.uow.Querier().ExecContext(ctx, query, args...)
+	if err != nil {
+		return infraerrors.WrapSQLiteError(err, "create_batch_template_variables")
+	}
+
+	return nil
+}
+
+func (r *templateVariableRepository) UpdateBatch(ctx context.Context, variables []domain.TemplateVariable) *pkgerrors.Error {
+	if len(variables) == 0 {
+		return nil
+	}
+
+	for _, v := range variables {
+		query, args, err := builder.
+			Update("template_variables").
+			Set("description", nullString(v.Description)).
+			Set("var_type", v.VarType).
+			Set("default_value", nullString(v.DefaultValue)).
+			Set("is_sensitive", v.IsSensitive).
+			Set("is_required", v.IsRequired).
+			Set("validation_regex", nullString(v.ValidationRegex)).
+			Set("display_order", v.DisplayOrder).
+			Set("updated_at", sq.Expr("CURRENT_TIMESTAMP")).
+			Where(sq.Eq{"id": v.ID}).
+			ToSql()
+		if err != nil {
+			return infraerrors.WrapSQLiteError(err, "update_batch_template_variables")
+		}
+
+		_, err = r.uow.Querier().ExecContext(ctx, query, args...)
+		if err != nil {
+			return infraerrors.WrapSQLiteError(err, "update_batch_template_variables")
+		}
+	}
+
+	return nil
+}
+
 func (r *templateVariableRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.TemplateVariable, *pkgerrors.Error) {
 	query, args, err := builder.
 		Select(templateVariableCols...).
