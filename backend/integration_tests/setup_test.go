@@ -10,12 +10,17 @@ import (
 	"testing"
 	"time"
 
+	"crypto/rand"
+	"encoding/hex"
+
 	"backend/internal/application"
 	handlererrors "backend/internal/application/errors"
 	"backend/internal/infra/filestorage"
 	"backend/internal/infra/http/handlers"
 	"backend/internal/infra/http/middleware"
 	"backend/internal/infra/sqlite"
+	"backend/internal/infra/tfparser"
+	"backend/pkg/crypto"
 	"backend/pkg/jwt"
 	"backend/pkg/validation"
 
@@ -91,9 +96,25 @@ func TestMain(m *testing.M) {
 	templateStorageDir := filepath.Join(tmpDir, "template_storage")
 	fileStorage := filestorage.NewLocalFileStorage(templateStorageDir)
 
+	// Generate a random encryption key for tests
+	encKey := make([]byte, 32)
+	if _, err := rand.Read(encKey); err != nil {
+		fmt.Fprintf(os.Stderr, "failed to generate encryption key: %v\n", err)
+		os.Exit(1)
+	}
+	os.Setenv("ENCRYPTION_KEY", hex.EncodeToString(encKey))
+
+	encryptor, err := crypto.NewAESEncryptor(encKey)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "failed to create encryptor: %v\n", err)
+		os.Exit(1)
+	}
+
+	tfParser := tfparser.NewHCLParser()
+
 	uowFactory := sqlite.NewUnitOfWorkFactory(DbConnection)
 	repoFactory := sqlite.NewRepositoryFactory()
-	serviceFactory := application.NewServiceFactory(uowFactory, repoFactory, validator, fileStorage)
+	serviceFactory := application.NewServiceFactory(uowFactory, repoFactory, validator, fileStorage, encryptor, tfParser)
 
 	// Build the Fiber app (mirrors cmd/server/main.go).
 	app := fiber.New(fiber.Config{
@@ -119,6 +140,12 @@ func TestMain(m *testing.M) {
 
 	templateHandler := handlers.NewTemplateHandler(serviceFactory.NewTemplateService)
 	templateHandler.RegisterRoutes(protected)
+
+	templateVariableHandler := handlers.NewTemplateVariableHandler(serviceFactory.NewTemplateVariableService)
+	templateVariableHandler.RegisterRoutes(protected)
+
+	envVarValueHandler := handlers.NewEnvironmentVariableValueHandler(serviceFactory.NewEnvironmentVariableValueService)
+	envVarValueHandler.RegisterRoutes(protected)
 
 	// Listen on a random available port.
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
