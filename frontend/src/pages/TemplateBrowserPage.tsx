@@ -17,6 +17,7 @@ import {
 } from '@/lib/templates-api'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
+import TemplateVariablesSection from '@/components/template-variables/TemplateVariablesSection'
 import type { ApiError, Template, TemplateFileInfo } from '@/types/api'
 
 interface TreeNode {
@@ -143,6 +144,8 @@ export default function TemplateBrowserPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
+  const [activeTab, setActiveTab] = useState<'files' | 'variables'>('files')
+
   const [selectedFile, setSelectedFile] = useState<string | null>(null)
   const [fileContent, setFileContent] = useState<string>('')
   const [contentLoading, setContentLoading] = useState(false)
@@ -225,69 +228,96 @@ export default function TemplateBrowserPage() {
         )}
       </div>
 
-      <div
-        className="flex gap-4 rounded-md border"
-        style={{ minHeight: '500px' }}
-      >
-        {/* File tree - left panel */}
-        <div className="w-1/4 border-r p-3">
-          {loading ? (
-            <div className="space-y-2">
-              <Skeleton className="h-5 w-32" />
-              {Array.from({ length: 4 }).map((_, i) => (
-                <Skeleton key={i} className="ml-4 h-4 w-28" />
-              ))}
-            </div>
-          ) : (
-            <div className="space-y-0.5">
-              <div className="flex items-center gap-2 font-medium text-sm py-1 px-2">
-                <FolderOpen className="h-4 w-4 text-muted-foreground" />
-                {template?.name}
-              </div>
-              {tree.map((node) => (
-                <TreeNodeView
-                  key={node.path}
-                  node={node}
-                  depth={1}
-                  selectedFile={selectedFile}
-                  onFileClick={handleFileClick}
-                />
-              ))}
-              {files.length === 0 && (
-                <p className="text-muted-foreground pl-6 text-sm">No files</p>
-              )}
-            </div>
-          )}
-        </div>
-
-        {/* Content viewer - right panel */}
-        <div className="flex-1 p-3 overflow-auto">
-          {!selectedFile ? (
-            <p className="text-muted-foreground text-sm">
-              Select a file to view its content.
-            </p>
-          ) : contentLoading ? (
-            <div className="space-y-2">
-              {Array.from({ length: 8 }).map((_, i) => (
-                <Skeleton
-                  key={i}
-                  className="h-4"
-                  style={{ width: `${60 + Math.random() * 30}%` }}
-                />
-              ))}
-            </div>
-          ) : (
-            <div>
-              <div className="mb-2 text-sm font-medium text-muted-foreground">
-                {selectedFile}
-              </div>
-              <pre className="rounded-md bg-muted p-4 text-sm overflow-auto">
-                <code>{fileContent}</code>
-              </pre>
-            </div>
-          )}
-        </div>
+      <div className="flex gap-4 border-b">
+        <button
+          className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
+            activeTab === 'files'
+              ? 'border-primary text-foreground'
+              : 'border-transparent text-muted-foreground hover:text-foreground'
+          }`}
+          onClick={() => setActiveTab('files')}
+        >
+          Files
+        </button>
+        <button
+          className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
+            activeTab === 'variables'
+              ? 'border-primary text-foreground'
+              : 'border-transparent text-muted-foreground hover:text-foreground'
+          }`}
+          onClick={() => setActiveTab('variables')}
+        >
+          Variables
+        </button>
       </div>
+
+      {activeTab === 'files' ? (
+        <div
+          className="flex gap-4 rounded-md border"
+          style={{ minHeight: '500px' }}
+        >
+          {/* File tree - left panel */}
+          <div className="w-1/4 border-r p-3">
+            {loading ? (
+              <div className="space-y-2">
+                <Skeleton className="h-5 w-32" />
+                {Array.from({ length: 4 }).map((_, i) => (
+                  <Skeleton key={i} className="ml-4 h-4 w-28" />
+                ))}
+              </div>
+            ) : (
+              <div className="space-y-0.5">
+                <div className="flex items-center gap-2 font-medium text-sm py-1 px-2">
+                  <FolderOpen className="h-4 w-4 text-muted-foreground" />
+                  {template?.name}
+                </div>
+                {tree.map((node) => (
+                  <TreeNodeView
+                    key={node.path}
+                    node={node}
+                    depth={1}
+                    selectedFile={selectedFile}
+                    onFileClick={handleFileClick}
+                  />
+                ))}
+                {files.length === 0 && (
+                  <p className="text-muted-foreground pl-6 text-sm">No files</p>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Content viewer - right panel */}
+          <div className="flex-1 p-3 overflow-auto">
+            {!selectedFile ? (
+              <p className="text-muted-foreground text-sm">
+                Select a file to view its content.
+              </p>
+            ) : contentLoading ? (
+              <div className="space-y-2">
+                {Array.from({ length: 8 }).map((_, i) => (
+                  <Skeleton
+                    key={i}
+                    className="h-4"
+                    style={{ width: `${60 + Math.random() * 30}%` }}
+                  />
+                ))}
+              </div>
+            ) : (
+              <div>
+                <div className="mb-2 text-sm font-medium text-muted-foreground">
+                  {selectedFile}
+                </div>
+                <pre className="rounded-md bg-muted p-4 text-sm overflow-auto">
+                  <code>{fileContent}</code>
+                </pre>
+              </div>
+            )}
+          </div>
+        </div>
+      ) : (
+        <TemplateVariablesSection templateId={id!} />
+      )}
     </div>
   )
 }
