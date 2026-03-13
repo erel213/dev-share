@@ -65,3 +65,58 @@ export interface TemplateFileInfo {
 export interface SystemStatus {
   initialized: boolean
 }
+
+export interface TemplateVariable {
+  id: string
+  template_id: string
+  key: string
+  description: string
+  var_type: string
+  default_value: string
+  is_sensitive: boolean
+  is_required: boolean
+  validation_regex: string
+  is_auto_parsed: boolean
+  display_order: number
+  created_at: string
+  updated_at: string
+}
+
+export interface CreateTemplateVariableRequest {
+  key: string
+  description?: string
+  var_type?: string
+  default_value?: string
+  is_sensitive?: boolean
+  is_required?: boolean
+  validation_regex?: string
+}
+
+export interface UpdateTemplateVariableRequest {
+  description?: string
+  var_type?: string
+  default_value?: string
+  is_sensitive?: boolean
+  is_required?: boolean
+  validation_regex?: string
+  display_order?: number
+}
+
+export interface ParseVariablesResult {
+  variables: TemplateVariable[]
+  added: number
+  updated: number
+  removed: number
+}
+
+export interface EnvironmentVariableValue {
+  template_variable_id: string
+  key: string
+  value: string
+  is_sensitive: boolean
+}
+
+export interface SetVariableValueEntry {
+  template_variable_id: string
+  value: string
+}

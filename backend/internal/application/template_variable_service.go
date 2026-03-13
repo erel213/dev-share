@@ -185,7 +185,7 @@ func (s TemplateVariableService) ParseAndReconcileVariables(ctx context.Context,
 	}
 
 	// Read variables.tf from the template's storage directory
-	content, readErr := s.fileStorage.ReadFile(template.Path)
+	content, readErr := s.fileStorage.ReadFile(template.Path + "/variables.tf")
 	if readErr != nil {
 		return nil, apperrors.ReturnBadRequest("no variables.tf found in template: " + filepath.Base(template.Path))
 	}
