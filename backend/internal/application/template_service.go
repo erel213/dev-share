@@ -26,28 +26,14 @@ var allowedExtensions = map[string]bool{
 	".json":   true,
 }
 
-const maxFileSize int64 = 1 * 1024 * 1024 // 1MB
-
-// validateFilePath checks that a file path is safe (no traversal, no backslash, no absolute paths).
-func validateFilePath(name string) *errors.Error {
-	if strings.Contains(name, "..") || strings.Contains(name, "\\") {
-		return apperrors.ReturnBadRequest("invalid file name: " + name)
-	}
-	cleaned := filepath.Clean(name)
-	if filepath.IsAbs(cleaned) {
-		return apperrors.ReturnBadRequest("invalid file name: " + name)
-	}
-	return nil
-}
-
 type TemplateService struct {
 	templateRepository  repository.TemplateRepository
 	workspaceRepository repository.WorkspaceRepository
-	validator           *validation.Service
+	validator           validation.Service
 	fileStorage         storage.FileStorage
 }
 
-func NewTemplateService(templateRepo repository.TemplateRepository, workspaceRepository repository.WorkspaceRepository, validator *validation.Service, fileStorage storage.FileStorage) TemplateService {
+func NewTemplateService(templateRepo repository.TemplateRepository, workspaceRepository repository.WorkspaceRepository, validator validation.Service, fileStorage storage.FileStorage) TemplateService {
 	return TemplateService{
 		templateRepository:  templateRepo,
 		workspaceRepository: workspaceRepository,
@@ -76,7 +62,7 @@ func (s TemplateService) CreateTemplate(ctx context.Context, request contracts.C
 	}
 
 	for _, f := range files {
-		if err := validateFilePath(f.Name); err != nil {
+		if err := s.validator.Validate(f); err != nil {
 			return nil, err
 		}
 
@@ -84,13 +70,12 @@ func (s TemplateService) CreateTemplate(ctx context.Context, request contracts.C
 		if !allowedExtensions[ext] {
 			return nil, apperrors.ReturnBadRequest("file extension not allowed: " + ext + " (allowed: .tf, .tfvars, .hcl, .json)")
 		}
-
-		if f.Size > maxFileSize {
-			return nil, apperrors.ReturnBadRequest("file too large: " + f.Name + " (max 1MB)")
-		}
 	}
 
-	template := domain.NewTemplate(request.Name, request.WorkspaceID)
+	template, err := domain.NewTemplate(request.Name, request.WorkspaceID, s.validator)
+	if err != nil {
+		return nil, err
+	}
 
 	// Save files to storage
 	if err := s.fileStorage.SaveFiles(template.Path, files); err != nil {
@@ -173,17 +158,13 @@ func (s TemplateService) UpdateTemplate(ctx context.Context, request contracts.U
 
 	// Validate and save additional files
 	for _, f := range files {
-		if err := validateFilePath(f.Name); err != nil {
+		if err := s.validator.Validate(f); err != nil {
 			return nil, err
 		}
 
 		ext := strings.ToLower(filepath.Ext(f.Name))
 		if !allowedExtensions[ext] {
 			return nil, apperrors.ReturnBadRequest("file extension not allowed: " + ext + " (allowed: .tf, .tfvars, .hcl, .json)")
-		}
-
-		if f.Size > maxFileSize {
-			return nil, apperrors.ReturnBadRequest("file too large: " + f.Name + " (max 1MB)")
 		}
 	}
 
@@ -305,10 +286,6 @@ func (s TemplateService) GetTemplateFileContent(ctx context.Context, request con
 	}
 
 	if err := s.validator.Validate(request); err != nil {
-		return nil, err
-	}
-
-	if err := validateFilePath(request.Filename); err != nil {
 		return nil, err
 	}
 

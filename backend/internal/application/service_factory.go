@@ -50,7 +50,7 @@ func (f *ServiceFactory) NewTemplateService() TemplateService {
 	return NewTemplateService(
 		f.repoFactory.CreateTemplateRepository(uow),
 		f.repoFactory.CreateWorkspaceRepository(uow),
-		f.validator,
+		*f.validator,
 		f.fileStorage,
 	)
 }
