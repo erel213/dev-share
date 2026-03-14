@@ -4,12 +4,12 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"time"
 
 	"backend/internal/domain"
 	domainerrors "backend/internal/domain/errors"
 	"backend/internal/domain/repository"
 	infraerrors "backend/internal/infra/errors"
+	pkgerrors "backend/pkg/errors"
 
 	sq "github.com/Masterminds/squirrel"
 	"github.com/google/uuid"
@@ -72,7 +72,7 @@ func scanEnvironment(scanner interface{ Scan(dest ...any) error }) (*domain.Envi
 	return &env, nil
 }
 
-func (r *environmentRepository) Create(ctx context.Context, env *domain.Environment) error {
+func (r *environmentRepository) Create(ctx context.Context, env *domain.Environment) *pkgerrors.Error {
 	if env.ID == uuid.Nil {
 		env.ID = uuid.New()
 	}
@@ -84,7 +84,7 @@ func (r *environmentRepository) Create(ctx context.Context, env *domain.Environm
 		Suffix("RETURNING created_at, updated_at").
 		ToSql()
 	if err != nil {
-		return fmt.Errorf("failed to build insert query: %w", err)
+		return infraerrors.WrapSQLiteError(err, "create_environment")
 	}
 
 	var cat, uat TimestampDest
@@ -99,14 +99,14 @@ func (r *environmentRepository) Create(ctx context.Context, env *domain.Environm
 	return nil
 }
 
-func (r *environmentRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.Environment, error) {
+func (r *environmentRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.Environment, *pkgerrors.Error) {
 	query, args, err := builder.
 		Select(envColumns...).
 		From("environments").
 		Where(sq.Eq{"id": id}).
 		ToSql()
 	if err != nil {
-		return nil, fmt.Errorf("failed to build select query: %w", err)
+		return nil, infraerrors.WrapSQLiteError(err, "get_environment")
 	}
 
 	env, scanErr := scanEnvironment(r.uow.Querier().QueryRowContext(ctx, query, args...))
@@ -120,10 +120,10 @@ func (r *environmentRepository) GetByID(ctx context.Context, id uuid.UUID) (*dom
 	return env, nil
 }
 
-func (r *environmentRepository) queryMany(ctx context.Context, qb sq.SelectBuilder, op string) ([]*domain.Environment, error) {
+func (r *environmentRepository) queryMany(ctx context.Context, qb sq.SelectBuilder, op string) ([]*domain.Environment, *pkgerrors.Error) {
 	query, args, err := qb.ToSql()
 	if err != nil {
-		return nil, fmt.Errorf("failed to build query: %w", err)
+		return nil, infraerrors.WrapSQLiteError(err, op)
 	}
 
 	rows, err := r.uow.Querier().QueryContext(ctx, query, args...)
@@ -148,7 +148,7 @@ func (r *environmentRepository) queryMany(ctx context.Context, qb sq.SelectBuild
 	return environments, nil
 }
 
-func (r *environmentRepository) GetByWorkspaceID(ctx context.Context, workspaceID uuid.UUID) ([]*domain.Environment, error) {
+func (r *environmentRepository) GetByWorkspaceID(ctx context.Context, workspaceID uuid.UUID) ([]*domain.Environment, *pkgerrors.Error) {
 	return r.queryMany(ctx, builder.
 		Select(envColumns...).
 		From("environments").
@@ -158,7 +158,7 @@ func (r *environmentRepository) GetByWorkspaceID(ctx context.Context, workspaceI
 	)
 }
 
-func (r *environmentRepository) GetByCreatedBy(ctx context.Context, userID uuid.UUID) ([]*domain.Environment, error) {
+func (r *environmentRepository) GetByCreatedBy(ctx context.Context, userID uuid.UUID) ([]*domain.Environment, *pkgerrors.Error) {
 	return r.queryMany(ctx, builder.
 		Select(envColumns...).
 		From("environments").
@@ -168,7 +168,7 @@ func (r *environmentRepository) GetByCreatedBy(ctx context.Context, userID uuid.
 	)
 }
 
-func (r *environmentRepository) GetByTemplateID(ctx context.Context, templateID uuid.UUID) ([]*domain.Environment, error) {
+func (r *environmentRepository) GetByTemplateID(ctx context.Context, templateID uuid.UUID) ([]*domain.Environment, *pkgerrors.Error) {
 	return r.queryMany(ctx, builder.
 		Select(envColumns...).
 		From("environments").
@@ -178,7 +178,7 @@ func (r *environmentRepository) GetByTemplateID(ctx context.Context, templateID 
 	)
 }
 
-func (r *environmentRepository) Update(ctx context.Context, env *domain.Environment) error {
+func (r *environmentRepository) Update(ctx context.Context, env *domain.Environment) *pkgerrors.Error {
 	qb := builder.
 		Update("environments").
 		Set("name", env.Name).
@@ -199,7 +199,7 @@ func (r *environmentRepository) Update(ctx context.Context, env *domain.Environm
 
 	query, args, err := qb.ToSql()
 	if err != nil {
-		return fmt.Errorf("failed to build update query: %w", err)
+		return infraerrors.WrapSQLiteError(err, "update_environment")
 	}
 
 	var uat TimestampDest
@@ -216,13 +216,13 @@ func (r *environmentRepository) Update(ctx context.Context, env *domain.Environm
 	return nil
 }
 
-func (r *environmentRepository) Delete(ctx context.Context, id uuid.UUID) error {
+func (r *environmentRepository) Delete(ctx context.Context, id uuid.UUID) *pkgerrors.Error {
 	query, args, err := builder.
 		Delete("environments").
 		Where(sq.Eq{"id": id}).
 		ToSql()
 	if err != nil {
-		return fmt.Errorf("failed to build delete query: %w", err)
+		return infraerrors.WrapSQLiteError(err, "delete_environment")
 	}
 
 	result, err := r.uow.Querier().ExecContext(ctx, query, args...)
@@ -242,7 +242,7 @@ func (r *environmentRepository) Delete(ctx context.Context, id uuid.UUID) error 
 	return nil
 }
 
-func (r *environmentRepository) List(ctx context.Context, opts repository.ListOptions) ([]*domain.Environment, error) {
+func (r *environmentRepository) List(ctx context.Context, opts repository.ListOptions) ([]*domain.Environment, *pkgerrors.Error) {
 	opts.ApplyDefaults()
 	if err := opts.Validate(); err != nil {
 		return nil, err
@@ -261,7 +261,7 @@ func (r *environmentRepository) List(ctx context.Context, opts repository.ListOp
 // AcquireOperation atomically transitions the environment to newStatus only if
 // the current status is not one of the blocking statuses. This acts as the
 // concurrency mutex described in the research doc (Section 3).
-func (r *environmentRepository) AcquireOperation(ctx context.Context, id uuid.UUID, newStatus domain.EnvironmentStatus) (*domain.Environment, error) {
+func (r *environmentRepository) AcquireOperation(ctx context.Context, id uuid.UUID, newStatus domain.EnvironmentStatus) (*domain.Environment, *pkgerrors.Error) {
 	// Build the blocking status strings for the NOT IN clause.
 	blocking := make([]string, len(domain.OperationBlockingStatuses))
 	for i, s := range domain.OperationBlockingStatuses {
@@ -279,7 +279,7 @@ func (r *environmentRepository) AcquireOperation(ctx context.Context, id uuid.UU
 		Suffix("RETURNING " + joinColumns(envColumns)).
 		ToSql()
 	if err != nil {
-		return nil, fmt.Errorf("failed to build acquire query: %w", err)
+		return nil, infraerrors.WrapSQLiteError(err, "acquire_operation")
 	}
 
 	env, scanErr := scanEnvironment(r.uow.Querier().QueryRowContext(ctx, query, args...))
@@ -290,7 +290,7 @@ func (r *environmentRepository) AcquireOperation(ctx context.Context, id uuid.UU
 			if getErr != nil {
 				return nil, getErr
 			}
-			return nil, fmt.Errorf("environment is currently %s — cannot start %s", existing.Status, newStatus)
+			return nil, pkgerrors.WithCodef(pkgerrors.CodeConflict, "environment is currently %s — cannot start %s", existing.Status, newStatus)
 		}
 		return nil, infraerrors.WrapSQLiteError(scanErr, "acquire_operation")
 	}
