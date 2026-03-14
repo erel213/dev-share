@@ -106,6 +106,8 @@ func formatValidationError(fe validator.FieldError) string {
 		return field + " must equal " + fe.Param()
 	case "ne":
 		return field + " must not equal " + fe.Param()
+	case "filepath":
+		return field + " contains an invalid file path"
 	case "strongpassword":
 		return field + " must contain at least one uppercase letter, one lowercase letter, one number, and one special character"
 	default:

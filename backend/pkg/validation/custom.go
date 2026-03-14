@@ -1,7 +1,9 @@
 package validation
 
 import (
+	"path/filepath"
 	"regexp"
+	"strings"
 	"unicode"
 
 	"github.com/go-playground/validator/v10"
@@ -20,12 +22,21 @@ func (s *Service) RegisterDefaultCustomValidations() error {
 		return err
 	}
 
-	// Add more custom validators here as needed
-	// if err := s.RegisterCustomValidation("customtag", validateCustom); err != nil {
-	//     return err
-	// }
+	if err := s.RegisterCustomValidation("filepath", validateFilePath); err != nil {
+		return err
+	}
 
 	return nil
+}
+
+// validateFilePath validates that a file path is safe (no traversal, no backslash, no absolute paths)
+func validateFilePath(fl validator.FieldLevel) bool {
+	path := fl.Field().String()
+	if strings.Contains(path, "..") || strings.Contains(path, "\\") {
+		return false
+	}
+	cleaned := filepath.Clean(path)
+	return !filepath.IsAbs(cleaned)
 }
 
 // validateStrongPassword validates that a password meets strong password requirements

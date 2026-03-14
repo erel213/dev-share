@@ -38,7 +38,7 @@ type (
 
 	GetTemplateFileContent struct {
 		ID       uuid.UUID `json:"id" validate:"required,uuid4"`
-		Filename string    `json:"filename" validate:"required"`
+		Filename string    `json:"filename" validate:"required,filepath"`
 	}
 
 	TemplateFileInfo struct {
