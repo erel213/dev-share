@@ -39,3 +39,23 @@ func (d *TimestampDest) Scan(src interface{}) error {
 }
 
 func (d *TimestampDest) Time() time.Time { return d.t }
+
+// NullableTimestamp is used for scanning nullable timestamp columns.
+type NullableTimestamp struct {
+	t     time.Time
+	valid bool
+}
+
+func (d *NullableTimestamp) Scan(src interface{}) error {
+	if src == nil {
+		d.valid = false
+		return nil
+	}
+	d.valid = true
+	var ts TimestampDest
+	if err := ts.Scan(src); err != nil {
+		return err
+	}
+	d.t = ts.Time()
+	return nil
+}

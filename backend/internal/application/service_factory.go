@@ -3,18 +3,21 @@ package application
 import (
 	apphandlers "backend/internal/application/handlers"
 	"backend/internal/domain/storage"
+	"backend/internal/infra/terraform"
 	"backend/internal/infra/tfparser"
 	"backend/pkg/crypto"
 	"backend/pkg/validation"
 )
 
 type ServiceFactory struct {
-	uowFactory  apphandlers.UnitOfWorkFactory
-	repoFactory apphandlers.RepositoryFactory
-	validator   *validation.Service
-	fileStorage storage.FileStorage
-	encryptor   crypto.Encryptor
-	tfParser    tfparser.TFParser
+	uowFactory       apphandlers.UnitOfWorkFactory
+	repoFactory      apphandlers.RepositoryFactory
+	validator        *validation.Service
+	fileStorage      storage.FileStorage
+	encryptor        crypto.Encryptor
+	tfParser         tfparser.TFParser
+	executionStorage storage.ExecutionStorage
+	tfExecutor       *terraform.Executor
 }
 
 func NewServiceFactory(
@@ -24,14 +27,18 @@ func NewServiceFactory(
 	fileStorage storage.FileStorage,
 	encryptor crypto.Encryptor,
 	tfParser tfparser.TFParser,
+	executionStorage storage.ExecutionStorage,
+	tfExecutor *terraform.Executor,
 ) *ServiceFactory {
 	return &ServiceFactory{
-		uowFactory:  uowFactory,
-		repoFactory: repoFactory,
-		validator:   validator,
-		fileStorage: fileStorage,
-		encryptor:   encryptor,
-		tfParser:    tfParser,
+		uowFactory:       uowFactory,
+		repoFactory:      repoFactory,
+		validator:        validator,
+		fileStorage:      fileStorage,
+		encryptor:        encryptor,
+		tfParser:         tfParser,
+		executionStorage: executionStorage,
+		tfExecutor:       tfExecutor,
 	}
 }
 
@@ -50,8 +57,20 @@ func (f *ServiceFactory) NewTemplateService() TemplateService {
 	return NewTemplateService(
 		f.repoFactory.CreateTemplateRepository(uow),
 		f.repoFactory.CreateWorkspaceRepository(uow),
-		f.validator,
+		*f.validator,
 		f.fileStorage,
+	)
+}
+
+func (f *ServiceFactory) NewEnvironmentService() EnvironmentService {
+	uow := f.uowFactory.Create()
+	return NewEnvironmentService(
+		f.repoFactory.CreateEnvironmentRepository(uow),
+		f.repoFactory.CreateTemplateRepository(uow),
+		f.repoFactory.CreateUserRepository(uow),
+		f.validator,
+		f.executionStorage,
+		f.tfExecutor,
 	)
 }
 

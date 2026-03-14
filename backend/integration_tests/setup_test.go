@@ -19,6 +19,7 @@ import (
 	"backend/internal/infra/http/handlers"
 	"backend/internal/infra/http/middleware"
 	"backend/internal/infra/sqlite"
+	"backend/internal/infra/terraform"
 	"backend/internal/infra/tfparser"
 	"backend/pkg/crypto"
 	"backend/pkg/jwt"
@@ -92,7 +93,7 @@ func TestMain(m *testing.M) {
 		os.Exit(1)
 	}
 
-	// Create temp directory for template file storage
+	// Create temp directories for file storage
 	templateStorageDir := filepath.Join(tmpDir, "template_storage")
 	fileStorage := filestorage.NewLocalFileStorage(templateStorageDir)
 
@@ -111,10 +112,13 @@ func TestMain(m *testing.M) {
 	}
 
 	tfParser := tfparser.NewHCLParser()
+	executionDir := filepath.Join(tmpDir, "env_executions")
+	executionStorage := filestorage.NewLocalExecutionStorage(executionDir, templateStorageDir)
+	tfExecutor := terraform.NewExecutor(executionDir, "")
 
 	uowFactory := sqlite.NewUnitOfWorkFactory(DbConnection)
 	repoFactory := sqlite.NewRepositoryFactory()
-	serviceFactory := application.NewServiceFactory(uowFactory, repoFactory, validator, fileStorage, encryptor, tfParser)
+	serviceFactory := application.NewServiceFactory(uowFactory, repoFactory, validator, fileStorage, encryptor, tfParser, executionStorage, tfExecutor)
 
 	// Build the Fiber app (mirrors cmd/server/main.go).
 	app := fiber.New(fiber.Config{

@@ -5,6 +5,10 @@ CREATE TABLE IF NOT EXISTS environments (
     created_by UUID NOT NULL,
     workspace_id UUID NOT NULL,
     template_id UUID,
+    status TEXT NOT NULL DEFAULT 'pending',
+    last_applied_at TIMESTAMP,
+    last_operation TEXT,
+    last_error TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT fk_created_by FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE CASCADE,
@@ -14,3 +18,4 @@ CREATE TABLE IF NOT EXISTS environments (
 CREATE INDEX idx_environments_workspace_id ON environments(workspace_id);
 CREATE INDEX idx_environments_created_by ON environments(created_by);
 CREATE INDEX idx_environments_template_id ON environments(template_id);
+CREATE INDEX idx_environments_status ON environments(status);
