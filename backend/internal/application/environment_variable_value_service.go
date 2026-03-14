@@ -48,8 +48,8 @@ func (s EnvironmentVariableValueService) verifyEnvironmentOwnership(ctx context.
 		return nil, apperrors.ReturnUnauthorized("missing JWT claims in context")
 	}
 
-	env, stdErr := s.environmentRepo.GetByID(ctx, environmentID)
-	if stdErr != nil {
+	env, repoErr := s.environmentRepo.GetByID(ctx, environmentID)
+	if repoErr != nil {
 		return nil, apperrors.ReturnNotFound("environment not found")
 	}
 
@@ -193,8 +193,8 @@ func (s EnvironmentVariableValueService) GetVariableValues(ctx context.Context, 
 // GetDecryptedValues returns decrypted variable values for deployment flow.
 // Returns separate maps for non-sensitive and sensitive values.
 func (s EnvironmentVariableValueService) GetDecryptedValues(ctx context.Context, environmentID uuid.UUID) (nonsensitive map[string]string, sensitive map[string]string, retErr *errors.Error) {
-	env, stdErr := s.environmentRepo.GetByID(ctx, environmentID)
-	if stdErr != nil {
+	env, repoErr := s.environmentRepo.GetByID(ctx, environmentID)
+	if repoErr != nil {
 		return nil, nil, apperrors.ReturnNotFound("environment not found")
 	}
 

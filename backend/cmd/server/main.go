@@ -11,6 +11,7 @@ import (
 	"backend/internal/infra/http/handlers"
 	"backend/internal/infra/http/middleware"
 	"backend/internal/infra/sqlite"
+	"backend/internal/infra/terraform"
 	"backend/internal/infra/tfparser"
 	"backend/pkg/crypto"
 	"backend/pkg/jwt"
@@ -87,13 +88,22 @@ func main() {
 
 	// TF Parser
 	tfParser := tfparser.NewHCLParser()
+	// Execution storage for terraform working directories
+	envExecutionPath := getEnv("ENV_EXECUTION_PATH", "./env_executions")
+	executionStorage := filestorage.NewLocalExecutionStorage(envExecutionPath, templateStoragePath)
+	slog.Info("execution storage initialized", "path", envExecutionPath)
+
+	// Terraform executor
+	tfPluginCacheDir := getEnv("TF_PLUGIN_CACHE_DIR", "")
+	tfExecutor := terraform.NewExecutor(envExecutionPath, tfPluginCacheDir)
+	slog.Info("terraform executor initialized")
 
 	// Infrastructure factories
 	uowFactory := sqlite.NewUnitOfWorkFactory(db)
 	repoFactory := sqlite.NewRepositoryFactory()
 
 	// Application-layer service factory
-	serviceFactory := application.NewServiceFactory(uowFactory, repoFactory, validator, fileStorage, encryptor, tfParser)
+	serviceFactory := application.NewServiceFactory(uowFactory, repoFactory, validator, fileStorage, encryptor, tfParser, executionStorage, tfExecutor)
 
 	// Initialize handlers — method values satisfy the handler's func() (Service, UnitOfWork) field
 	userHandler := handlers.NewUserHandler(serviceFactory.NewUserService)
@@ -101,6 +111,7 @@ func main() {
 	templateHandler := handlers.NewTemplateHandler(serviceFactory.NewTemplateService)
 	templateVariableHandler := handlers.NewTemplateVariableHandler(serviceFactory.NewTemplateVariableService)
 	envVarValueHandler := handlers.NewEnvironmentVariableValueHandler(serviceFactory.NewEnvironmentVariableValueService)
+	environmentHandler := handlers.NewEnvironmentHandler(serviceFactory.NewEnvironmentService)
 	adminHandler := handlers.NewAdminHandler(serviceFactory.NewAdminService)
 
 	app := fiber.New(fiber.Config{
@@ -148,6 +159,7 @@ func main() {
 	templateHandler.RegisterRoutes(protected)
 	templateVariableHandler.RegisterRoutes(protected)
 	envVarValueHandler.RegisterRoutes(protected)
+	environmentHandler.RegisterRoutes(protected)
 
 	// Get port from environment or default to 8080
 	port := getEnv("PORT", "8080")

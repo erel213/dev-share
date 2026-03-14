@@ -42,18 +42,18 @@ func (s EnvironmentStatus) IsValid() bool {
 func (s EnvironmentStatus) String() string { return string(s) }
 
 type Environment struct {
-	ID            uuid.UUID          `json:"id"`
-	Name          string             `json:"name"`
-	CreatedAt     time.Time          `json:"created_at"`
-	CreatedBy     uuid.UUID          `json:"created_by"`
-	Description   string             `json:"description"`
-	WorkspaceID   uuid.UUID          `json:"workspace_id"`
-	TemplateID    uuid.UUID          `json:"template_id"`
-	Status        EnvironmentStatus  `json:"status"`
-	LastAppliedAt *time.Time         `json:"last_applied_at,omitempty"`
-	LastOperation string             `json:"last_operation,omitempty"`
-	LastError     string             `json:"last_error,omitempty"`
-	UpdatedAt     time.Time          `json:"updated_at"`
+	ID            uuid.UUID         `json:"id"`
+	Name          string            `json:"name"`
+	CreatedAt     time.Time         `json:"created_at"`
+	CreatedBy     uuid.UUID         `json:"created_by"`
+	Description   string            `json:"description"`
+	WorkspaceID   uuid.UUID         `json:"workspace_id"`
+	TemplateID    uuid.UUID         `json:"template_id"`
+	Status        EnvironmentStatus `json:"status"`
+	LastAppliedAt *time.Time        `json:"last_applied_at,omitempty"`
+	LastOperation string            `json:"last_operation,omitempty"`
+	LastError     string            `json:"last_error,omitempty"`
+	UpdatedAt     time.Time         `json:"updated_at"`
 }
 
 // ExecutionPath returns the relative directory path for this environment's
@@ -86,5 +86,18 @@ func NewEnvironment(name, description string, createdBy, workspaceID, templateID
 		WorkspaceID: workspaceID,
 		TemplateID:  templateID,
 		Status:      EnvironmentStatusPending,
+	}
+}
+
+func OperationFromStatus(s EnvironmentStatus) string {
+	switch s {
+	case EnvironmentStatusPlanning:
+		return "plan"
+	case EnvironmentStatusApplying:
+		return "apply"
+	case EnvironmentStatusDestroying:
+		return "destroy"
+	default:
+		return string(s)
 	}
 }

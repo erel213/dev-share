@@ -31,7 +31,7 @@ func New() *Service {
 }
 
 // Validate validates a struct and returns a domain error if validation fails
-func (s *Service) Validate(data interface{}) *pkgerrors.Error {
+func (s Service) Validate(data interface{}) *pkgerrors.Error {
 	err := s.validate.Struct(data)
 	if err == nil {
 		return nil
