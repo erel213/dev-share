@@ -25,6 +25,7 @@ type EnvironmentService struct {
 	validator        *validation.Service
 	executionStorage storage.ExecutionStorage
 	tfExecutor       *terraform.Executor
+	envVarService    EnvironmentVariableValueService
 }
 
 func NewEnvironmentService(
@@ -34,6 +35,7 @@ func NewEnvironmentService(
 	validator *validation.Service,
 	executionStorage storage.ExecutionStorage,
 	tfExecutor *terraform.Executor,
+	envVarService EnvironmentVariableValueService,
 ) EnvironmentService {
 	return EnvironmentService{
 		envRepo:          envRepo,
@@ -42,6 +44,7 @@ func NewEnvironmentService(
 		executionStorage: executionStorage,
 		tfExecutor:       tfExecutor,
 		userRepo:         userRepo,
+		envVarService:    envVarService,
 	}
 }
 
@@ -217,6 +220,18 @@ func (s EnvironmentService) startOperation(ctx context.Context, envID uuid.UUID,
 
 func (s EnvironmentService) executeTerraform(env *domain.Environment, status domain.EnvironmentStatus) {
 	ctx := context.Background()
+
+	// Write terraform.tfvars with decrypted variable values before running any command.
+	if err := s.writeVarsFile(ctx, env); err != nil {
+		env.Status = domain.EnvironmentStatusError
+		env.LastError = err.Error()
+		slog.Error("failed to write tfvars", "env_id", env.ID, "error", err)
+		if updateErr := s.envRepo.Update(ctx, env); updateErr != nil {
+			slog.Error("failed to update environment after tfvars error", "env_id", env.ID, "error", updateErr)
+		}
+		return
+	}
+
 	var tfErr error
 
 	switch status {
@@ -229,6 +244,29 @@ func (s EnvironmentService) executeTerraform(env *domain.Environment, status dom
 	}
 
 	s.completeOperation(env, status, tfErr)
+}
+
+func (s EnvironmentService) writeVarsFile(ctx context.Context, env *domain.Environment) *errors.Error {
+	nonsensitive, sensitive, err := s.envVarService.GetDecryptedValues(ctx, env.ID)
+	if err != nil {
+		return err
+	}
+
+	// Merge both maps into one for tfvars output.
+	merged := make(map[string]string, len(nonsensitive)+len(sensitive))
+	for k, v := range nonsensitive {
+		merged[k] = v
+	}
+	for k, v := range sensitive {
+		merged[k] = v
+	}
+
+	if len(merged) == 0 {
+		return nil
+	}
+
+	content := storage.FormatTFVars(merged)
+	return s.executionStorage.WriteVarsFile(env.ExecutionPath(), content)
 }
 
 func (s EnvironmentService) completeOperation(env *domain.Environment, status domain.EnvironmentStatus, tfErr error) {

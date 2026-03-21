@@ -64,6 +64,13 @@ func (f *ServiceFactory) NewTemplateService() TemplateService {
 
 func (f *ServiceFactory) NewEnvironmentService() EnvironmentService {
 	uow := f.uowFactory.Create()
+	envVarService := NewEnvironmentVariableValueService(
+		f.repoFactory.CreateEnvironmentVariableValueRepository(uow),
+		f.repoFactory.CreateTemplateVariableRepository(uow),
+		f.repoFactory.CreateEnvironmentRepository(uow),
+		f.encryptor,
+		f.validator,
+	)
 	return NewEnvironmentService(
 		f.repoFactory.CreateEnvironmentRepository(uow),
 		f.repoFactory.CreateTemplateRepository(uow),
@@ -71,6 +78,7 @@ func (f *ServiceFactory) NewEnvironmentService() EnvironmentService {
 		f.validator,
 		f.executionStorage,
 		f.tfExecutor,
+		envVarService,
 	)
 }
 
