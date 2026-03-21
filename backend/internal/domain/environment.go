@@ -100,16 +100,3 @@ func OperationFromStatus(s EnvironmentStatus) string {
 		return string(s)
 	}
 }
-
-func OperationFromStatus(s EnvironmentStatus) string {
-	switch s {
-	case EnvironmentStatusPlanning:
-		return "plan"
-	case EnvironmentStatusApplying:
-		return "apply"
-	case EnvironmentStatusDestroying:
-		return "destroy"
-	default:
-		return string(s)
-	}
-}
