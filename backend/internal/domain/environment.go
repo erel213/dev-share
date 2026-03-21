@@ -56,9 +56,21 @@ type Environment struct {
 	UpdatedAt     time.Time         `json:"updated_at"`
 }
 
-// ExecutionPath returns the relative directory path for this environment's
-// Terraform execution directory: {workspaceID}/{environmentID}
-func (e *Environment) ExecutionPath() string {
+func NewEnvironment(name, description string, createdBy, workspaceID, templateId uuid.UUID) *Environment {
+	return &Environment{
+		ID:          uuid.New(),
+		Name:        name,
+		Description: description,
+		CreatedBy:   createdBy,
+		WorkspaceID: workspaceID,
+		Status:      EnvironmentStatusPending,
+		CreatedAt:   time.Now().UTC(),
+		UpdatedAt:   time.Now().UTC(),
+		TemplateID:  templateId,
+	}
+}
+
+func (e Environment) ExecutionPath() string {
 	return filepath.Join(e.WorkspaceID.String(), e.ID.String())
 }
 
@@ -74,19 +86,6 @@ func (e *Environment) CanStartOperation() error {
 		return fmt.Errorf("environment has been destroyed")
 	}
 	return nil
-}
-
-func NewEnvironment(name, description string, createdBy, workspaceID, templateID uuid.UUID) *Environment {
-	id := uuid.New()
-	return &Environment{
-		ID:          id,
-		Name:        name,
-		CreatedBy:   createdBy,
-		Description: description,
-		WorkspaceID: workspaceID,
-		TemplateID:  templateID,
-		Status:      EnvironmentStatusPending,
-	}
 }
 
 func OperationFromStatus(s EnvironmentStatus) string {
