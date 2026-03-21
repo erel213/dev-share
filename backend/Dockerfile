@@ -18,6 +18,7 @@ COPY . .
 
 # Build the application
 RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o main ./cmd/server
+RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o migrate ./cmd/migrate
 
 # Final stage
 FROM alpine:latest
@@ -27,14 +28,19 @@ RUN apk --no-cache add ca-certificates
 
 WORKDIR /root/
 
-# Copy the binary from builder
+# Copy binaries from builder
 COPY --from=builder /app/main .
+COPY --from=builder /app/migrate .
 
 # Copy migration files
 COPY --from=builder /app/internal/infra/migrations/sqlite ./internal/infra/migrations/sqlite
 
+# Copy entrypoint script
+COPY entrypoint.sh .
+RUN chmod +x entrypoint.sh
+
 # Expose port
 EXPOSE 8080
 
-# Run the application
-CMD ["./main"]
+# Run migrations then start server
+CMD ["./entrypoint.sh"]
