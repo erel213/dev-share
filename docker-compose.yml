@@ -1,0 +1,39 @@
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: devshare-backend
+    environment:
+      - PORT=8080
+      - DB_FILE_PATH=/data/devshare.db
+      - MIGRATIONS_PATH=./internal/infra/migrations/sqlite
+      - JWT_SECRET=${JWT_SECRET}
+      - ENCRYPTION_KEY=${ENCRYPTION_KEY}
+      - TEMPLATE_STORAGE_PATH=/data/template_storage
+      - ENV_EXECUTION_PATH=/data/env_executions
+      - TF_PLUGIN_CACHE_DIR=/data/tf_plugin_cache
+    volumes:
+      - devshare-data:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8080/health"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: devshare-frontend
+    ports:
+      - "${APP_PORT:-3000}:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  devshare-data:

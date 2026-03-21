@@ -20,14 +20,11 @@ fail() { print_error "$1"; exit 1; }
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 cd "$SCRIPT_DIR"
 
-BACKEND_PID=""
-FRONTEND_PID=""
 cleanup() {
-  if [ -n "$FRONTEND_PID" ] && kill -0 "$FRONTEND_PID" 2>/dev/null; then
-    kill "$FRONTEND_PID" 2>/dev/null
-  fi
-  if [ -n "$BACKEND_PID" ] && kill -0 "$BACKEND_PID" 2>/dev/null; then
-    kill "$BACKEND_PID" 2>/dev/null
+  if [ -n "$COMPOSE_UP" ]; then
+    echo ""
+    print_step "Stopping Dev-Share..."
+    docker compose down
   fi
 }
 trap cleanup EXIT
@@ -36,159 +33,97 @@ trap cleanup EXIT
 
 print_step "Checking prerequisites"
 
-if ! command -v go &>/dev/null; then
-  fail "Go is not installed. Please install Go 1.24+ from https://go.dev/dl/"
+if ! command -v docker &>/dev/null; then
+  fail "Docker is not installed. Please install Docker from https://docs.docker.com/get-docker/"
 fi
+print_ok "Docker $(docker --version | grep -oE '[0-9]+\.[0-9]+\.[0-9]+')"
 
-GO_VERSION=$(go version | grep -oE '[0-9]+\.[0-9]+' | head -1)
-GO_MAJOR=$(echo "$GO_VERSION" | cut -d. -f1)
-GO_MINOR=$(echo "$GO_VERSION" | cut -d. -f2)
-if [ "$GO_MAJOR" -lt 1 ] || { [ "$GO_MAJOR" -eq 1 ] && [ "$GO_MINOR" -lt 24 ]; }; then
-  fail "Go 1.24+ required (found $GO_VERSION)"
+if ! docker compose version &>/dev/null; then
+  fail "Docker Compose is not available. Please install Docker Compose: https://docs.docker.com/compose/install/"
 fi
-print_ok "Go $GO_VERSION"
+print_ok "Docker Compose $(docker compose version --short)"
 
-if ! command -v pnpm &>/dev/null; then
-  fail "pnpm is not installed. Install it: npm install -g pnpm"
+if ! docker info &>/dev/null 2>&1; then
+  fail "Docker daemon is not running. Please start Docker and try again."
 fi
-print_ok "pnpm $(pnpm --version)"
+print_ok "Docker daemon is running"
 
 if ! command -v curl &>/dev/null; then
   fail "curl is not installed"
 fi
 print_ok "curl"
 
-# ── 2. Install backend dependencies ─────────────────────────────────
-
-print_step "Installing backend dependencies"
-(cd backend && go mod download) || fail "Failed to download Go modules"
-print_ok "Go modules downloaded"
-
-# ── 3. Install frontend dependencies ────────────────────────────────
-
-print_step "Installing frontend dependencies"
-(cd frontend && pnpm install) || fail "Failed to install frontend dependencies"
-print_ok "Frontend dependencies installed"
-
-# ── 4. Build frontend ───────────────────────────────────────────────
-
-print_step "Building frontend"
-(cd frontend && pnpm build) || fail "Frontend build failed"
-print_ok "Frontend built"
-
-# ── 5. Set up environment ───────────────────────────────────────────
+# ── 2. Set up environment ───────────────────────────────────────────
 
 print_step "Setting up environment"
 
 if [ ! -f .env ]; then
   cp .env.example .env
   JWT_SECRET=$(openssl rand -base64 32 2>/dev/null || head -c 32 /dev/urandom | base64)
+  ENCRYPTION_KEY=$(openssl rand -hex 32 2>/dev/null || head -c 32 /dev/urandom | xxd -p -c 32)
   if [[ "$OSTYPE" == "darwin"* ]]; then
     sed -i '' "s|^JWT_SECRET=.*|JWT_SECRET=$JWT_SECRET|" .env
+    sed -i '' "s|^ENCRYPTION_KEY=.*|ENCRYPTION_KEY=$ENCRYPTION_KEY|" .env
   else
     sed -i "s|^JWT_SECRET=.*|JWT_SECRET=$JWT_SECRET|" .env
+    sed -i "s|^ENCRYPTION_KEY=.*|ENCRYPTION_KEY=$ENCRYPTION_KEY|" .env
   fi
-  print_ok ".env created with generated JWT_SECRET"
+  print_ok ".env created with generated secrets"
 else
   print_warn ".env already exists, skipping"
 fi
 
-# Export env vars for the backend
-set -a
-source .env
-set +a
+# ── 3. Build and start containers ────────────────────────────────────
 
-# DB_FILE_PATH in .env is relative to the repo root (e.g. ./backend/devshare.db),
-# but Go commands run from backend/, so strip the leading ./backend/ prefix.
-if [[ "$DB_FILE_PATH" == ./backend/* ]]; then
-  export DB_FILE_PATH="./${DB_FILE_PATH#./backend/}"
-fi
+print_step "Building and starting containers"
+docker compose up --build -d || fail "Failed to start containers"
+COMPOSE_UP=1
+print_ok "Containers started"
 
-# ── 6. Run database migrations ──────────────────────────────────────
+# ── 4. Wait for healthy ─────────────────────────────────────────────
 
-print_step "Running database migrations"
-(cd backend && go run ./cmd/migrate) || fail "Database migration failed"
-print_ok "Migrations applied"
+print_step "Waiting for Dev-Share to be ready"
 
-# ── 7. Start backend ────────────────────────────────────────────────
-
-print_step "Starting backend server"
-(cd backend && go run ./cmd/server) &
-BACKEND_PID=$!
-print_ok "Backend starting (PID: $BACKEND_PID)"
-
-# ── 8. Wait for healthy ─────────────────────────────────────────────
-
-print_step "Waiting for backend to be ready"
-
-PORT="${PORT:-8080}"
-MAX_ATTEMPTS=30
+APP_PORT="${APP_PORT:-3000}"
+MAX_ATTEMPTS=60
 ATTEMPT=1
 
 while [ $ATTEMPT -le $MAX_ATTEMPTS ]; do
-  if curl -s "http://localhost:${PORT}/health" >/dev/null 2>&1; then
-    print_ok "Backend is healthy at http://localhost:${PORT}"
+  if curl -s "http://localhost:${APP_PORT}/health" >/dev/null 2>&1; then
+    print_ok "Dev-Share is healthy at http://localhost:${APP_PORT}"
     break
-  fi
-  if ! kill -0 "$BACKEND_PID" 2>/dev/null; then
-    fail "Backend process exited unexpectedly"
   fi
   sleep 1
   ATTEMPT=$((ATTEMPT + 1))
 done
 
 if [ $ATTEMPT -gt $MAX_ATTEMPTS ]; then
-  fail "Backend did not become healthy within ${MAX_ATTEMPTS}s"
+  echo ""
+  print_error "Dev-Share did not become healthy within ${MAX_ATTEMPTS}s"
+  print_warn "Check logs with: docker compose logs"
+  exit 1
 fi
 
-# ── 9. Start frontend dev server ──────────────────────────────────────
+# ── 5. Open browser ─────────────────────────────────────────────────
 
-print_step "Starting frontend dev server"
-FRONTEND_PID=""
-(cd frontend && pnpm dev --port 5173) &
-FRONTEND_PID=$!
-print_ok "Frontend starting (PID: $FRONTEND_PID)"
+APP_URL="http://localhost:${APP_PORT}/setup"
 
-FRONTEND_PORT=5173
-
-# Wait for frontend to be ready
-ATTEMPT=1
-while [ $ATTEMPT -le $MAX_ATTEMPTS ]; do
-  if curl -s "http://localhost:${FRONTEND_PORT}" >/dev/null 2>&1; then
-    print_ok "Frontend is ready at http://localhost:${FRONTEND_PORT}"
-    break
-  fi
-  if ! kill -0 "$FRONTEND_PID" 2>/dev/null; then
-    fail "Frontend process exited unexpectedly"
-  fi
-  sleep 1
-  ATTEMPT=$((ATTEMPT + 1))
-done
-
-if [ $ATTEMPT -gt $MAX_ATTEMPTS ]; then
-  fail "Frontend did not become ready within ${MAX_ATTEMPTS}s"
-fi
-
-# ── 10. Open browser ─────────────────────────────────────────────────
-
-FRONTEND_URL="http://localhost:${FRONTEND_PORT}/setup"
-
-STATUS=$(curl -s "http://localhost:${PORT}/admin/status")
+STATUS=$(curl -s "http://localhost:${APP_PORT}/admin/status")
 INITIALIZED=$(echo "$STATUS" | grep -o '"initialized":[a-z]*' | cut -d: -f2)
 
 if [ "$INITIALIZED" = "true" ]; then
   print_warn "System is already initialized."
+  APP_URL="http://localhost:${APP_PORT}"
 else
   print_ok "Opening setup wizard in your browser..."
 fi
 
-# Open browser
 if [[ "$OSTYPE" == "darwin"* ]]; then
-  open "$FRONTEND_URL"
+  open "$APP_URL"
 elif command -v xdg-open &>/dev/null; then
-  xdg-open "$FRONTEND_URL"
+  xdg-open "$APP_URL"
 else
-  print_warn "Open $FRONTEND_URL in your browser to continue setup."
+  print_warn "Open $APP_URL in your browser to continue setup."
 fi
 
 # ── Done ─────────────────────────────────────────────────────────────
@@ -198,12 +133,13 @@ echo -e "${GREEN}${BOLD}══════════════════�
 echo -e "${GREEN}${BOLD}  Dev-Share is running!${NC}"
 echo -e "${GREEN}${BOLD}════════════════════════════════════════${NC}"
 echo ""
-echo -e "  API:        http://localhost:${PORT}"
-echo -e "  Frontend:   http://localhost:${FRONTEND_PORT}"
+echo -e "  App:   http://localhost:${APP_PORT}"
 echo ""
 if [ "$INITIALIZED" != "true" ]; then
   echo -e "  Complete setup in your browser."
   echo ""
 fi
-echo "Press Ctrl+C to stop."
-wait "$BACKEND_PID" "$FRONTEND_PID"
+echo -e "  Logs:  docker compose logs -f"
+echo -e "  Stop:  docker compose down"
+echo ""
+COMPOSE_UP=""
