@@ -4,3 +4,5 @@
 **/template_storage
 backend/migrate
 backend/server
+**.terraform*
+**.tfstate*
