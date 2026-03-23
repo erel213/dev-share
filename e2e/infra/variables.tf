@@ -19,5 +19,4 @@ variable "key_name" {
 variable "public_key_path" {
   description = "Path to the SSH public key file to import"
   type        = string
-  default     = "~/.ssh/id_rsa.pub"
 }

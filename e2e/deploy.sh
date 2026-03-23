@@ -4,9 +4,11 @@ set -euo pipefail
 # ── Configuration ─────────────────────────────────────────────────────
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 INFRA_DIR="$SCRIPT_DIR/infra"
-SSH_KEY="${SSH_KEY:-$HOME/.ssh/id_rsa}"
+SSH_KEY=$(mktemp /tmp/e2e-key-XXXXX)
+rm -f "$SSH_KEY"
+ssh-keygen -t ed25519 -f "$SSH_KEY" -N "" -q
 SSH_OPTS="-i $SSH_KEY -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR"
-REPO_URL="${REPO_URL:-https://github.com/erelvanono/dev-share.git}"
+REPO_URL="${REPO_URL:-https://github.com/erel213/dev-share.git}"
 SSH_TIMEOUT=300  # 5 minutes max wait for SSH
 HEALTH_TIMEOUT=120  # 2 minutes max wait for app health
 
@@ -34,6 +36,12 @@ cleanup() {
     ok "SSH tunnel stopped"
   fi
 
+  # Remove ephemeral SSH key
+  if [ -n "${SSH_KEY:-}" ]; then
+    rm -f "$SSH_KEY" "${SSH_KEY}.pub"
+    ok "Ephemeral SSH key removed"
+  fi
+
   # Destroy infrastructure
   if [ -d "$INFRA_DIR/.terraform" ]; then
     cd "$INFRA_DIR"
@@ -46,7 +54,7 @@ trap cleanup EXIT
 log "Provisioning EC2 instance"
 cd "$INFRA_DIR"
 terraform init -input=false
-terraform apply -auto-approve -input=false
+terraform apply -auto-approve -input=false -var "public_key_path=${SSH_KEY}.pub"
 EC2_IP=$(terraform output -raw instance_public_ip)
 ok "EC2 instance ready at $EC2_IP"
 
@@ -95,9 +103,15 @@ until curl -s http://localhost:3000/health >/dev/null 2>&1; do
 done
 ok "App is healthy at http://localhost:3000 (${SECONDS}s)"
 
-# ── Step 7: Run Playwright tests ──────────────────────────────────────
-log "Running Playwright tests"
+# ── Step 7: Install Playwright dependencies ─────────────────────────
+log "Installing Playwright dependencies"
 cd "$SCRIPT_DIR"
+npm ci
+npx playwright install --with-deps chromium
+ok "Playwright ready"
+
+# ── Step 8: Run Playwright tests ──────────────────────────────────────
+log "Running Playwright tests"
 npx playwright test
 TEST_EXIT=$?
 
