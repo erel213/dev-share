@@ -38,6 +38,7 @@ type ErrorResponse struct {
 type AuthContext struct {
 	UserID      uuid.UUID
 	UserName    string
+	IsAdmin     bool
 	WorkspaceID uuid.UUID
 }
 
@@ -71,6 +72,7 @@ func addAuth(t *testing.T, req *http.Request, auth AuthContext) {
 	token, err := jwtSvc.GenerateToken(
 		auth.UserID.String(),
 		auth.UserName,
+		auth.IsAdmin,
 		auth.WorkspaceID.String(),
 	)
 	if err != nil {
