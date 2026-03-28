@@ -33,6 +33,10 @@ export default function ProtectedRoute() {
     }
   }, [systemCheck, status, checkAuth])
 
+  if (systemCheck === 'not_initialized') {
+    return <Navigate to="/setup" replace />
+  }
+
   if (systemCheck === 'loading' || status === 'idle' || status === 'loading') {
     return (
       <div className="flex min-h-screen items-center justify-center">
@@ -43,10 +47,6 @@ export default function ProtectedRoute() {
         </div>
       </div>
     )
-  }
-
-  if (systemCheck === 'not_initialized') {
-    return <Navigate to="/setup" replace />
   }
 
   if (status === 'unauthenticated') {
