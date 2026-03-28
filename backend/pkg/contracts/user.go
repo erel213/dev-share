@@ -18,6 +18,7 @@ type (
 	LoginResponse struct {
 		UserID      uuid.UUID `json:"user_id"`
 		Name        string    `json:"name"`
+		IsAdmin     bool      `json:"is_admin"`
 		WorkspaceID uuid.UUID `json:"workspace_id"`
 	}
 )

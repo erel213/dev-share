@@ -56,7 +56,7 @@ func (h *AdminHandler) InitializeSystem(c *fiber.Ctx) error {
 	if serviceErr != nil {
 		return serviceErr
 	}
-	token, err := h.jwtService.GenerateToken(response.AdminUserID.String(), response.UserName, response.WorkspaceID.String())
+	token, err := h.jwtService.GenerateToken(response.AdminUserID.String(), response.UserName, true, response.WorkspaceID.String())
 	if err != nil {
 		return err
 	}

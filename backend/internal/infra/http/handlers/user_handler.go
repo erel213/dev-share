@@ -58,7 +58,7 @@ func (h *UserHandler) CreateUser(c *fiber.Ctx) error {
 		return serviceErr
 	}
 
-	token, err := h.jwtService.GenerateToken(user.ID.String(), user.Name, user.WorkspaceID.String())
+	token, err := h.jwtService.GenerateToken(user.ID.String(), user.Name, user.IsAdmin, user.WorkspaceID.String())
 	if err != nil {
 		return err
 	}
@@ -86,7 +86,7 @@ func (h *UserHandler) Login(c *fiber.Ctx) error {
 		return serviceErr
 	}
 
-	token, err := h.jwtService.GenerateToken(user.UserID.String(), user.Name, user.WorkspaceID.String())
+	token, err := h.jwtService.GenerateToken(user.UserID.String(), user.Name, user.IsAdmin, user.WorkspaceID.String())
 	if err != nil {
 		return err
 	}
@@ -106,6 +106,7 @@ func (h *UserHandler) Me(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{
 		"user_id":      claims.ID,
 		"name":         claims.Name,
+		"is_admin":     claims.IsAdmin,
 		"workspace_id": claims.WorkspaceID,
 	})
 }
