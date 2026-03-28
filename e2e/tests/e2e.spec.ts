@@ -123,7 +123,7 @@ test.describe.serial("Dev-Share E2E", () => {
     await expect(page.getByText("outputs.tf")).toBeVisible();
 
     // Switch to Variables tab and parse
-    await page.getByRole("button", { name: "Variables" }).click();
+    await page.getByRole("button", { name: "Variables", exact: true }).click();
     await page.getByRole("button", { name: "Parse & Reconcile" }).click();
 
     // Verify variables were detected from variables.tf
