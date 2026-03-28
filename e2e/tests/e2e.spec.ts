@@ -98,11 +98,7 @@ test.describe.serial("Dev-Share E2E", () => {
     const fileChooserPromise = page.waitForEvent("filechooser");
     await page.getByRole("button", { name: "Browse Folder" }).click();
     const fileChooser = await fileChooserPromise;
-    await fileChooser.setFiles([
-      path.join(SAMPLE_TEMPLATE_DIR, "main.tf"),
-      path.join(SAMPLE_TEMPLATE_DIR, "variables.tf"),
-      path.join(SAMPLE_TEMPLATE_DIR, "outputs.tf"),
-    ]);
+    await fileChooser.setFiles(SAMPLE_TEMPLATE_DIR);
 
     // Verify files appear as badges
     await expect(page.getByText("main.tf")).toBeVisible();
