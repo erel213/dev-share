@@ -1,7 +1,16 @@
 #!/bin/bash
 set -euo pipefail
 
+# ── Argument parsing ─────────────────────────────────────────────────
+EXPORT_REPORT=false
+for arg in "$@"; do
+  case "$arg" in
+    --export-report) EXPORT_REPORT=true ;;
+  esac
+done
+
 # ── Configuration ─────────────────────────────────────────────────────
+CALLER_DIR="$(pwd)"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 INFRA_DIR="$SCRIPT_DIR/infra"
 SSH_KEY=$(mktemp /tmp/e2e-key-XXXXX)
@@ -119,6 +128,18 @@ if [ $TEST_EXIT -eq 0 ]; then
   ok "All tests passed"
 else
   err "Tests failed with exit code $TEST_EXIT"
+fi
+
+# ── Step 9: Export Playwright report ──────────────────────────────────
+if [ "$EXPORT_REPORT" = true ]; then
+  log "Exporting Playwright report"
+  REPORT_DIR="$SCRIPT_DIR/playwright-report"
+  if [ -d "$REPORT_DIR" ]; then
+    cp -r "$REPORT_DIR" "$CALLER_DIR/playwright-report"
+    ok "Report exported to $CALLER_DIR/playwright-report"
+  else
+    warn "No Playwright report found at $REPORT_DIR"
+  fi
 fi
 
 exit $TEST_EXIT
