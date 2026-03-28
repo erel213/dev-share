@@ -43,8 +43,8 @@ func (r *userRepository) Create(ctx context.Context, user domain.UserAggregate) 
 
 	query, args, err := builder.
 		Insert("users").
-		Columns("id", "name", "email", "workspace_id", "oauth_provider", "oauth_id", "password").
-		Values(user.BaseUser.ID, user.BaseUser.Name, user.BaseUser.Email, user.BaseUser.WorkspaceID, oauthProvider, oauthID, password).
+		Columns("id", "name", "email", "is_admin", "workspace_id", "oauth_provider", "oauth_id", "password").
+		Values(user.BaseUser.ID, user.BaseUser.Name, user.BaseUser.Email, user.BaseUser.IsAdmin, user.BaseUser.WorkspaceID, oauthProvider, oauthID, password).
 		Suffix("RETURNING created_at, updated_at").
 		ToSql()
 	if err != nil {
@@ -65,7 +65,7 @@ func (r *userRepository) Create(ctx context.Context, user domain.UserAggregate) 
 
 func (r *userRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.UserAggregate, *pkgerrors.Error) {
 	query, args, err := builder.
-		Select("id", "oauth_provider", "oauth_id", "password", "name", "email", "workspace_id", "created_at", "updated_at").
+		Select("id", "oauth_provider", "oauth_id", "password", "name", "email", "is_admin", "workspace_id", "created_at", "updated_at").
 		From("users").
 		Where(sq.Eq{"id": id}).
 		ToSql()
@@ -86,7 +86,7 @@ func (r *userRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.Use
 
 func (r *userRepository) GetByOAuthID(ctx context.Context, provider domain.OauthProvider, oauthID string) (*domain.UserAggregate, *pkgerrors.Error) {
 	query, args, err := builder.
-		Select("id", "oauth_provider", "oauth_id", "password", "name", "email", "workspace_id", "created_at", "updated_at").
+		Select("id", "oauth_provider", "oauth_id", "password", "name", "email", "is_admin", "workspace_id", "created_at", "updated_at").
 		From("users").
 		Where(sq.Eq{
 			"oauth_provider": provider,
@@ -110,7 +110,7 @@ func (r *userRepository) GetByOAuthID(ctx context.Context, provider domain.Oauth
 
 func (r *userRepository) GetByEmail(ctx context.Context, email string) (*domain.UserAggregate, *pkgerrors.Error) {
 	query, args, err := builder.
-		Select("id", "oauth_provider", "oauth_id", "password", "name", "email", "workspace_id", "created_at", "updated_at").
+		Select("id", "oauth_provider", "oauth_id", "password", "name", "email", "is_admin", "workspace_id", "created_at", "updated_at").
 		From("users").
 		Where(sq.Eq{"email": email}).
 		ToSql()
@@ -131,7 +131,7 @@ func (r *userRepository) GetByEmail(ctx context.Context, email string) (*domain.
 
 func (r *userRepository) GetByWorkspaceID(ctx context.Context, workspaceID uuid.UUID) ([]*domain.UserAggregate, *pkgerrors.Error) {
 	query, args, err := builder.
-		Select("id", "oauth_provider", "oauth_id", "password", "name", "email", "workspace_id", "created_at", "updated_at").
+		Select("id", "oauth_provider", "oauth_id", "password", "name", "email", "is_admin", "workspace_id", "created_at", "updated_at").
 		From("users").
 		Where(sq.Eq{"workspace_id": workspaceID}).
 		OrderBy("created_at DESC").
@@ -167,6 +167,7 @@ func (r *userRepository) Update(ctx context.Context, user domain.UserAggregate) 
 		Update("users").
 		Set("name", user.BaseUser.Name).
 		Set("email", user.BaseUser.Email).
+		Set("is_admin", user.BaseUser.IsAdmin).
 		Set("workspace_id", user.BaseUser.WorkspaceID).
 		Set("updated_at", sq.Expr("CURRENT_TIMESTAMP"))
 
@@ -237,7 +238,7 @@ func (r *userRepository) List(ctx context.Context, opts repository.ListOptions) 
 	}
 
 	query, args, err := builder.
-		Select("id", "oauth_provider", "oauth_id", "password", "name", "email", "workspace_id", "created_at", "updated_at").
+		Select("id", "oauth_provider", "oauth_id", "password", "name", "email", "is_admin", "workspace_id", "created_at", "updated_at").
 		From("users").
 		OrderBy(fmt.Sprintf("%s %s", opts.SortBy, opts.Order)).
 		Limit(uint64(opts.Limit)).
@@ -292,6 +293,7 @@ func (r *userRepository) scanUser(row *sql.Row) (*domain.UserAggregate, error) {
 		id                               uuid.UUID
 		oauthProvider, oauthID, password sql.NullString
 		name, email                      string
+		isAdmin                          bool
 		workspaceID                      uuid.UUID
 		cat, uat                         TimestampDest
 	)
@@ -303,6 +305,7 @@ func (r *userRepository) scanUser(row *sql.Row) (*domain.UserAggregate, error) {
 		&password,
 		&name,
 		&email,
+		&isAdmin,
 		&workspaceID,
 		&cat,
 		&uat,
@@ -311,7 +314,7 @@ func (r *userRepository) scanUser(row *sql.Row) (*domain.UserAggregate, error) {
 		return nil, err
 	}
 
-	return buildUserAggregate(id, oauthProvider, oauthID, password, name, email, workspaceID, cat.Time(), uat.Time()), nil
+	return buildUserAggregate(id, oauthProvider, oauthID, password, name, email, isAdmin, workspaceID, cat.Time(), uat.Time()), nil
 }
 
 func (r *userRepository) scanUserFromRows(rows *sql.Rows) (*domain.UserAggregate, error) {
@@ -319,6 +322,7 @@ func (r *userRepository) scanUserFromRows(rows *sql.Rows) (*domain.UserAggregate
 		id                               uuid.UUID
 		oauthProvider, oauthID, password sql.NullString
 		name, email                      string
+		isAdmin                          bool
 		workspaceID                      uuid.UUID
 		cat, uat                         TimestampDest
 	)
@@ -330,6 +334,7 @@ func (r *userRepository) scanUserFromRows(rows *sql.Rows) (*domain.UserAggregate
 		&password,
 		&name,
 		&email,
+		&isAdmin,
 		&workspaceID,
 		&cat,
 		&uat,
@@ -338,13 +343,14 @@ func (r *userRepository) scanUserFromRows(rows *sql.Rows) (*domain.UserAggregate
 		return nil, err
 	}
 
-	return buildUserAggregate(id, oauthProvider, oauthID, password, name, email, workspaceID, cat.Time(), uat.Time()), nil
+	return buildUserAggregate(id, oauthProvider, oauthID, password, name, email, isAdmin, workspaceID, cat.Time(), uat.Time()), nil
 }
 
 func buildUserAggregate(
 	id uuid.UUID,
 	oauthProvider, oauthID, password sql.NullString,
 	name, email string,
+	isAdmin bool,
 	workspaceID uuid.UUID,
 	createdAt, updatedAt time.Time,
 ) *domain.UserAggregate {
@@ -353,6 +359,7 @@ func buildUserAggregate(
 			ID:          id,
 			Name:        name,
 			Email:       email,
+			IsAdmin:     isAdmin,
 			WorkspaceID: workspaceID,
 			CreatedAt:   createdAt,
 			UpdatedAt:   updatedAt,
