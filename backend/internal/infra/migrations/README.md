@@ -18,6 +18,7 @@ erDiagram
         VARCHAR password
         VARCHAR name
         VARCHAR email
+        BOOLEAN is_admin
         UUID workspace_id FK
         TIMESTAMPTZ created_at
         TIMESTAMPTZ updated_at

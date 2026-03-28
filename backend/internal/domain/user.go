@@ -40,6 +40,7 @@ type (
 		ID          uuid.UUID `json:"id"`
 		Name        string    `json:"name"`
 		Email       string    `json:"email"`
+		IsAdmin     bool      `json:"is_admin"`
 		WorkspaceID uuid.UUID `json:"workspace_id"`
 		CreatedAt   time.Time `json:"created_at"`
 		UpdatedAt   time.Time `json:"updated_at"`
@@ -61,11 +62,12 @@ func NewLocalUser(password string) (LocalUser, *errors.Error) {
 	return LocalUser{Password: hashedPassword}, nil
 }
 
-func NewBaseUser(name, email string, workspaceID uuid.UUID) BaseUser {
+func NewBaseUser(name, email string, isAdmin bool, workspaceID uuid.UUID) BaseUser {
 	return BaseUser{
 		ID:          uuid.New(),
 		Name:        name,
 		Email:       email,
+		IsAdmin:     isAdmin,
 		WorkspaceID: workspaceID,
 		CreatedAt:   time.Now(),
 		UpdatedAt:   time.Now(),
@@ -87,8 +89,8 @@ func (u *LocalUser) CheckPassword(password string) bool {
 	return valid
 }
 
-func (f *UserFactory) Create(oauthProvider *OauthProvider, oauthId *uuid.UUID, name, email string, password *string, workspaceID uuid.UUID) (UserAggregate, *errors.Error) {
-	baseUser := NewBaseUser(name, email, workspaceID)
+func (f *UserFactory) Create(oauthProvider *OauthProvider, oauthId *uuid.UUID, name, email string, password *string, isAdmin bool, workspaceID uuid.UUID) (UserAggregate, *errors.Error) {
+	baseUser := NewBaseUser(name, email, isAdmin, workspaceID)
 	if oauthProvider != nil && oauthId != nil {
 		thirdPartyUser, err := NewThirdPartyUser(string(*oauthProvider), oauthId.String())
 		if err != nil {
