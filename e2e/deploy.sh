@@ -54,7 +54,7 @@ trap cleanup EXIT
 log "Provisioning EC2 instance"
 cd "$INFRA_DIR"
 terraform init -input=false
-terraform apply -auto-approve -input=false -var "public_key_path=${SSH_KEY}.pub"
+terraform apply -auto-approve -input=false -var "public_key=$(cat "${SSH_KEY}.pub")"
 EC2_IP=$(terraform output -raw instance_public_ip)
 ok "EC2 instance ready at $EC2_IP"
 

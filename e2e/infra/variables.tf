@@ -16,7 +16,8 @@ variable "key_name" {
   default     = "dev-share-e2e"
 }
 
-variable "public_key_path" {
-  description = "Path to the SSH public key file to import"
+variable "public_key" {
+  description = "SSH public key content to import"
   type        = string
+  default     = ""
 }
