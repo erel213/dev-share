@@ -135,7 +135,7 @@ func TestGenerateToken(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			token, err := service.GenerateToken(tt.id, tt.userName, tt.workspaceID)
+			token, err := service.GenerateToken(tt.id, tt.userName, false, tt.workspaceID)
 
 			if tt.wantErr {
 				if err == nil {
@@ -183,7 +183,7 @@ func TestGenerateToken_Expiration(t *testing.T) {
 		t.Fatalf("Failed to create service: %v", err)
 	}
 
-	token, err := service.GenerateToken(testUserID, testUserName, testWorkspaceID)
+	token, err := service.GenerateToken(testUserID, testUserName, false, testWorkspaceID)
 	if err != nil {
 		t.Fatalf("GenerateToken() failed: %v", err)
 	}
@@ -231,7 +231,7 @@ func TestValidateToken(t *testing.T) {
 	}
 
 	// Generate a valid token for testing
-	validToken, err := service.GenerateToken(testUserID, testUserName, testWorkspaceID)
+	validToken, err := service.GenerateToken(testUserID, testUserName, false, testWorkspaceID)
 	if err != nil {
 		t.Fatalf("Failed to generate token: %v", err)
 	}
@@ -382,7 +382,7 @@ func TestValidateToken_TokenTampering(t *testing.T) {
 	}
 
 	// Generate a valid token
-	validToken, err := service.GenerateToken(testUserID, testUserName, testWorkspaceID)
+	validToken, err := service.GenerateToken(testUserID, testUserName, false, testWorkspaceID)
 	if err != nil {
 		t.Fatalf("Failed to generate token: %v", err)
 	}
@@ -423,7 +423,7 @@ func TestService_MultipleTokens(t *testing.T) {
 	// which is expected behavior. We add delays to ensure different timestamps.
 	tokens := make(map[string]bool)
 	for i := 0; i < 5; i++ {
-		token, err := service.GenerateToken(testUserID, testUserName, testWorkspaceID)
+		token, err := service.GenerateToken(testUserID, testUserName, false, testWorkspaceID)
 		if err != nil {
 			t.Errorf("GenerateToken() iteration %d failed: %v", i, err)
 			continue
