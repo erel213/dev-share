@@ -76,7 +76,11 @@ fi
 # ── 3. Build and start containers ────────────────────────────────────
 
 print_step "Building and starting containers"
-docker compose up --build -d || fail "Failed to start containers"
+if ! docker compose up --build -d; then
+  print_error "Failed to start containers. Dumping logs:"
+  docker compose logs
+  fail "Failed to start containers"
+fi
 COMPOSE_UP=1
 print_ok "Containers started"
 
@@ -100,7 +104,8 @@ done
 if [ $ATTEMPT -gt $MAX_ATTEMPTS ]; then
   echo ""
   print_error "Dev-Share did not become healthy within ${MAX_ATTEMPTS}s"
-  print_warn "Check logs with: docker compose logs"
+  print_warn "Container logs:"
+  docker compose logs
   exit 1
 fi
 
