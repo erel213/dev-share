@@ -14,4 +14,10 @@ type (
 		Email    string `json:"email" validate:"required,email"`
 		Password string `json:"password" validate:"required"`
 	}
+
+	LoginResponse struct {
+		UserID      uuid.UUID `json:"user_id"`
+		Name        string    `json:"name"`
+		WorkspaceID uuid.UUID `json:"workspace_id"`
+	}
 )

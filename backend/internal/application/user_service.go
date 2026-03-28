@@ -74,25 +74,30 @@ func (s UserService) CreateLocalUser(ctx context.Context, uow handlers.UnitOfWor
 	return user, nil
 }
 
-func (s UserService) AuthenticateLocalUser(ctx context.Context, request contracts.LoginLocalUser) (domain.UserAggregate, *errors.Error) {
+func (s UserService) AuthenticateLocalUser(ctx context.Context, request contracts.LoginLocalUser) (contracts.LoginResponse, *errors.Error) {
 	if err := s.validator.Validate(request); err != nil {
-		return domain.UserAggregate{}, err
+		return contracts.LoginResponse{}, err
 	}
 
 	unauthorized := domainerrors.Unauthorized("invalid email or password")
 
 	user, err := s.userRepository.GetByEmail(ctx, request.Email)
 	if err != nil {
-		return domain.UserAggregate{}, unauthorized
+		return contracts.LoginResponse{}, unauthorized
 	}
 
 	if user.LocalUser == nil {
-		return domain.UserAggregate{}, unauthorized
+		return contracts.LoginResponse{}, unauthorized
 	}
 
 	if !user.LocalUser.CheckPassword(request.Password) {
-		return domain.UserAggregate{}, unauthorized
+		return contracts.LoginResponse{}, unauthorized
 	}
 
-	return *user, nil
+	resp := contracts.LoginResponse{
+		UserID:      user.ID,
+		Name:        user.Name,
+		WorkspaceID: user.WorkspaceID,
+	}
+	return resp, nil
 }

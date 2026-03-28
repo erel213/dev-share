@@ -86,18 +86,14 @@ func (h *UserHandler) Login(c *fiber.Ctx) error {
 		return serviceErr
 	}
 
-	token, err := h.jwtService.GenerateToken(user.ID.String(), user.Name, user.WorkspaceID.String())
+	token, err := h.jwtService.GenerateToken(user.UserID.String(), user.Name, user.WorkspaceID.String())
 	if err != nil {
 		return err
 	}
 
 	middleware.SetTokenCookie(c, token, h.cookieCfg)
 
-	return c.Status(fiber.StatusOK).JSON(fiber.Map{
-		"user_id":      user.ID,
-		"name":         user.Name,
-		"workspace_id": user.WorkspaceID,
-	})
+	return c.Status(fiber.StatusOK).JSON(user)
 }
 
 // Me handles GET /api/v1/me
