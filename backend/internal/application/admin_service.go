@@ -71,6 +71,12 @@ func (s *AdminService) InitializeSystem(
 		return nil, userErr
 	}
 
+	// Mark the admin user
+	adminUser.IsAdmin = true
+	if err = s.userRepository.Update(ctx, adminUser); err != nil {
+		return nil, err
+	}
+
 	// Direct repo call: link admin to workspace
 	if err = s.workspaceRepository.UpdateAdminID(ctx, workspace.ID, adminUser.BaseUser.ID); err != nil {
 		return nil, err
