@@ -7,7 +7,7 @@ export interface ApiError {
 export interface User {
   id: string
   name: string
-  isAdmin: boolean
+  role: string
   workspaceId: string
 }
 
@@ -46,7 +46,7 @@ export interface AdminInitResponse {
 export interface LoginResponse {
   user_id: string
   name: string
-  is_admin: boolean
+  role: string
   workspace_id: string
 }
 
