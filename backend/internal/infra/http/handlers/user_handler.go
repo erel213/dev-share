@@ -101,7 +101,7 @@ func (h *UserHandler) Me(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{
 		"user_id":      claims.ID,
 		"name":         claims.Name,
-		"is_admin":     claims.IsAdmin,
+		"role":         claims.Role,
 		"workspace_id": claims.WorkspaceID,
 	})
 }
