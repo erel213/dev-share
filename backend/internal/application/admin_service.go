@@ -72,7 +72,7 @@ func (s *AdminService) InitializeSystem(
 	}
 
 	// Mark the admin user
-	adminUser.IsAdmin = true
+	adminUser.Role = domain.RoleAdmin
 	if err = s.userRepository.Update(ctx, adminUser); err != nil {
 		return nil, err
 	}
