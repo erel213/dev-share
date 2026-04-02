@@ -2,7 +2,6 @@ package jwt
 
 import (
 	stderrors "errors"
-	"os"
 	"time"
 
 	"backend/pkg/errors"
@@ -49,9 +48,8 @@ type Service struct {
 	secret []byte
 }
 
-// NewService creates a new JWT service with the secret from environment variable
-func NewService() (*Service, error) {
-	secret := os.Getenv("JWT_SECRET")
+// NewService creates a new JWT service with the provided secret.
+func NewService(secret string) (*Service, error) {
 	if secret == "" {
 		return nil, ErrMissingSecret
 	}

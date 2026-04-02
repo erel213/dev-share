@@ -16,16 +16,11 @@ type UserHandler struct {
 	cookieCfg      jwt.CookieConfig
 }
 
-func NewUserHandler(serviceFactory func() (application.UserService, apphandlers.UnitOfWork)) *UserHandler {
-	jwtService, err := jwt.NewService()
-	if err != nil {
-		panic("failed to initialize JWT service: " + err.Error())
-	}
-	cookieCfg := jwt.DefaultCookieConfig()
+func NewUserHandler(serviceFactory func() (application.UserService, apphandlers.UnitOfWork), jwtService *jwt.Service) *UserHandler {
 	return &UserHandler{
 		serviceFactory: serviceFactory,
 		jwtService:     jwtService,
-		cookieCfg:      cookieCfg,
+		cookieCfg:      jwt.DefaultCookieConfig(),
 	}
 }
 
@@ -58,7 +53,7 @@ func (h *UserHandler) CreateUser(c *fiber.Ctx) error {
 		return serviceErr
 	}
 
-	token, err := h.jwtService.GenerateToken(user.ID.String(), user.Name, user.IsAdmin, user.WorkspaceID.String())
+	token, err := h.jwtService.GenerateToken(user.ID.String(), user.Name, string(user.Role), user.WorkspaceID.String())
 	if err != nil {
 		return err
 	}
@@ -86,7 +81,7 @@ func (h *UserHandler) Login(c *fiber.Ctx) error {
 		return serviceErr
 	}
 
-	token, err := h.jwtService.GenerateToken(user.UserID.String(), user.Name, user.IsAdmin, user.WorkspaceID.String())
+	token, err := h.jwtService.GenerateToken(user.UserID.String(), user.Name, user.Role, user.WorkspaceID.String())
 	if err != nil {
 		return err
 	}

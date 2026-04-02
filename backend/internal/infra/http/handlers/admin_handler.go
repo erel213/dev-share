@@ -1,8 +1,6 @@
 package handlers
 
 import (
-	"os"
-
 	"backend/internal/application"
 	apphandlers "backend/internal/application/handlers"
 	"backend/internal/infra/http/middleware"
@@ -16,29 +14,24 @@ type AdminHandler struct {
 	serviceFactory func() (*application.AdminService, apphandlers.UnitOfWork)
 	jwtService     *jwt.Service
 	cookieCfg      jwt.CookieConfig
+	adminInitToken string
 }
 
-func NewAdminHandler(serviceFactory func() (*application.AdminService, apphandlers.UnitOfWork)) *AdminHandler {
-	jwtService, err := jwt.NewService()
-	if err != nil {
-		panic("failed to initialize JWT service: " + err.Error())
-	}
-	cookieCfg := jwt.DefaultCookieConfig()
+func NewAdminHandler(serviceFactory func() (*application.AdminService, apphandlers.UnitOfWork), jwtService *jwt.Service, adminInitToken string) *AdminHandler {
 	return &AdminHandler{
 		serviceFactory: serviceFactory,
 		jwtService:     jwtService,
-		cookieCfg:      cookieCfg,
+		cookieCfg:      jwt.DefaultCookieConfig(),
+		adminInitToken: adminInitToken,
 	}
 }
 
 // InitializeSystem handles POST /admin/init
 func (h *AdminHandler) InitializeSystem(c *fiber.Ctx) error {
 	// Check optional ADMIN_INIT_TOKEN
-	// TODO: in the future we should consider temporary token approaches
-	expectedToken := os.Getenv("ADMIN_INIT_TOKEN")
-	if expectedToken != "" {
+	if h.adminInitToken != "" {
 		providedToken := c.Get("X-Admin-Init-Token")
-		if providedToken != expectedToken {
+		if providedToken != h.adminInitToken {
 			return fiber.NewError(fiber.StatusUnauthorized, "Invalid or missing initialization token")
 		}
 	}
@@ -56,7 +49,7 @@ func (h *AdminHandler) InitializeSystem(c *fiber.Ctx) error {
 	if serviceErr != nil {
 		return serviceErr
 	}
-	token, err := h.jwtService.GenerateToken(response.AdminUserID.String(), response.UserName, true, response.WorkspaceID.String())
+	token, err := h.jwtService.GenerateToken(response.AdminUserID.String(), response.UserName, "admin", response.WorkspaceID.String())
 	if err != nil {
 		return err
 	}
