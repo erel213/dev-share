@@ -101,14 +101,14 @@ func main() {
 	// Application-layer service factory
 	serviceFactory := application.NewServiceFactory(uowFactory, repoFactory, validator, fileStorage, encryptor, tfParser, executionStorage, tfExecutor)
 
-	// Initialize handlers — method values satisfy the handler's func() (Service, UnitOfWork) field
-	userHandler := handlers.NewUserHandler(serviceFactory.NewUserService)
+	// Initialize handlers
+	userHandler := handlers.NewUserHandler(serviceFactory.NewUserService, jwtService)
 	workspaceHandler := handlers.NewWorkspaceHandler(serviceFactory.NewWorkspaceService)
 	templateHandler := handlers.NewTemplateHandler(serviceFactory.NewTemplateService)
 	templateVariableHandler := handlers.NewTemplateVariableHandler(serviceFactory.NewTemplateVariableService)
 	envVarValueHandler := handlers.NewEnvironmentVariableValueHandler(serviceFactory.NewEnvironmentVariableValueService)
 	environmentHandler := handlers.NewEnvironmentHandler(serviceFactory.NewEnvironmentService)
-	adminHandler := handlers.NewAdminHandler(serviceFactory.NewAdminService)
+	adminHandler := handlers.NewAdminHandler(serviceFactory.NewAdminService, jwtService, cfg.AdminInitToken)
 
 	app := fiber.New(fiber.Config{
 		AppName:      "Dev-Share Backend",
@@ -149,19 +149,23 @@ func main() {
 	// Public: user registration does not require authentication
 	userHandler.RegisterRoutes(api)
 
+	// Protected routes — all authenticated users
 	protected := api.Group("", middleware.RequireAuth(jwtService, jwt.DefaultCookieConfig()))
 	userHandler.RegisterProtectedRoutes(protected)
-	workspaceHandler.RegisterRoutes(protected)
-	templateHandler.RegisterRoutes(protected)
-	templateVariableHandler.RegisterRoutes(protected)
-	envVarValueHandler.RegisterRoutes(protected)
+
+	// Environment routes — all roles can read and write
 	environmentHandler.RegisterRoutes(protected)
+	envVarValueHandler.RegisterRoutes(protected)
+
+	// Editor-level routes — editor and admin can write, all can read (GET passes through)
+	editorProtected := protected.Group("", middleware.RequireRole(domain.RoleEditor))
+	workspaceHandler.RegisterRoutes(editorProtected)
+	templateHandler.RegisterRoutes(editorProtected)
+	templateVariableHandler.RegisterRoutes(editorProtected)
 
 	// Get port from environment or default to 8080
-	port := getEnv("PORT", "8080")
-
-	slog.Info("starting server", "port", port)
-	if err := app.Listen(":" + port); err != nil {
+	slog.Info("starting server", "port", cfg.Port)
+	if err := app.Listen(":" + cfg.Port); err != nil {
 		slog.Error("failed to start server", "error", err)
 		os.Exit(1)
 	}
