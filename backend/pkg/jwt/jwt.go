@@ -39,7 +39,7 @@ var (
 type Claims struct {
 	ID          string `json:"id"`
 	Name        string `json:"name"`
-	IsAdmin     bool   `json:"is_admin"`
+	Role        string `json:"role"`
 	WorkspaceID string `json:"workspace_id"`
 	jwtlib.RegisteredClaims
 }
@@ -67,13 +67,13 @@ func NewService() (*Service, error) {
 
 // GenerateToken creates a new JWT token with the provided claims
 // Returns the signed token string or an error if token generation fails
-func (s *Service) GenerateToken(id, name string, isAdmin bool, workspaceID string) (string, error) {
+func (s *Service) GenerateToken(id, name, role, workspaceID string) (string, error) {
 	now := time.Now()
 
 	claims := Claims{
 		ID:          id,
 		Name:        name,
-		IsAdmin:     isAdmin,
+		Role:        role,
 		WorkspaceID: workspaceID,
 		RegisteredClaims: jwtlib.RegisteredClaims{
 			ExpiresAt: jwtlib.NewNumericDate(now.Add(DefaultTokenDuration)),
