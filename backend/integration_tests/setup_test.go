@@ -40,15 +40,12 @@ var (
 )
 
 func TestMain(m *testing.M) {
-	// Ensure JWT_SECRET is set for the test process.
-	if os.Getenv("JWT_SECRET") == "" {
-		os.Setenv("JWT_SECRET", "your_jwt_secretyour_jwt_secretyour_jwt_secretyour_jwt_secret")
-	}
+	const testJWTSecret = "your_jwt_secretyour_jwt_secretyour_jwt_secretyour_jwt_secret"
 
 	HTTPClient = &http.Client{Timeout: 10 * time.Second}
 
 	var err error
-	jwtSvc, err = jwt.NewService()
+	jwtSvc, err = jwt.NewService(testJWTSecret)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "failed to create JWT service: %v\n", err)
 		os.Exit(1)
@@ -130,12 +127,12 @@ func TestMain(m *testing.M) {
 		return c.JSON(fiber.Map{"status": "healthy"})
 	})
 
-	adminHandler := handlers.NewAdminHandler(serviceFactory.NewAdminService)
+	adminHandler := handlers.NewAdminHandler(serviceFactory.NewAdminService, jwtSvc, "")
 	app.Post("/admin/init", adminHandler.InitializeSystem)
 
 	api := app.Group("/api/v1")
 
-	userHandler := handlers.NewUserHandler(serviceFactory.NewUserService)
+	userHandler := handlers.NewUserHandler(serviceFactory.NewUserService, jwtSvc)
 	userHandler.RegisterRoutes(api)
 
 	protected := api.Group("", middleware.RequireAuth(jwtSvc, jwt.DefaultCookieConfig()))
