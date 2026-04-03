@@ -275,6 +275,66 @@ func TestUserFactory_Create_PartialOAuthCredentials(t *testing.T) {
 	})
 }
 
+func TestGenerateRandomPassword(t *testing.T) {
+	tests := []struct {
+		name           string
+		length         int
+		expectedMinLen int
+	}{
+		{name: "default length 16", length: 16, expectedMinLen: 16},
+		{name: "short length clamped to 8", length: 4, expectedMinLen: 8},
+		{name: "exact minimum 8", length: 8, expectedMinLen: 8},
+		{name: "long password 32", length: 32, expectedMinLen: 32},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			pw, err := GenerateRandomPassword(tt.length)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if len(pw) < tt.expectedMinLen {
+				t.Errorf("expected length >= %d, got %d", tt.expectedMinLen, len(pw))
+			}
+
+			var hasUpper, hasLower, hasDigit, hasSpecial bool
+			for _, c := range pw {
+				switch {
+				case c >= 'A' && c <= 'Z':
+					hasUpper = true
+				case c >= 'a' && c <= 'z':
+					hasLower = true
+				case c >= '0' && c <= '9':
+					hasDigit = true
+				default:
+					hasSpecial = true
+				}
+			}
+			if !hasUpper {
+				t.Error("password missing uppercase letter")
+			}
+			if !hasLower {
+				t.Error("password missing lowercase letter")
+			}
+			if !hasDigit {
+				t.Error("password missing digit")
+			}
+			if !hasSpecial {
+				t.Error("password missing special character")
+			}
+		})
+	}
+
+	// Uniqueness test
+	t.Run("uniqueness", func(t *testing.T) {
+		pw1, _ := GenerateRandomPassword(16)
+		pw2, _ := GenerateRandomPassword(16)
+		if pw1 == pw2 {
+			t.Error("two consecutive calls should produce different passwords")
+		}
+	})
+}
+
 func TestHashPassword(t *testing.T) {
 	tests := []struct {
 		name     string

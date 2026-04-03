@@ -143,6 +143,55 @@ func (f *UserFactory) Create(oauthProvider *OauthProvider, oauthId *uuid.UUID, n
 
 }
 
+// GenerateRandomPassword generates a cryptographically secure random password
+// of the given length that satisfies the strongpassword validation rule.
+func GenerateRandomPassword(length int) (string, error) {
+	if length < 8 {
+		length = 8
+	}
+
+	const (
+		upperChars   = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+		lowerChars   = "abcdefghijklmnopqrstuvwxyz"
+		digitChars   = "0123456789"
+		specialChars = "@$!%*?&"
+		allChars     = upperChars + lowerChars + digitChars + specialChars
+	)
+
+	password := make([]byte, length)
+
+	// Ensure at least one of each required class
+	required := []string{upperChars, lowerChars, digitChars, specialChars}
+	for i, charset := range required {
+		b := make([]byte, 1)
+		if _, err := rand.Read(b); err != nil {
+			return "", fmt.Errorf("failed to generate random byte: %w", err)
+		}
+		password[i] = charset[int(b[0])%len(charset)]
+	}
+
+	// Fill remaining positions with random chars from full set
+	for i := len(required); i < length; i++ {
+		b := make([]byte, 1)
+		if _, err := rand.Read(b); err != nil {
+			return "", fmt.Errorf("failed to generate random byte: %w", err)
+		}
+		password[i] = allChars[int(b[0])%len(allChars)]
+	}
+
+	// Shuffle using Fisher-Yates with crypto/rand
+	for i := length - 1; i > 0; i-- {
+		b := make([]byte, 1)
+		if _, err := rand.Read(b); err != nil {
+			return "", fmt.Errorf("failed to generate random byte: %w", err)
+		}
+		j := int(b[0]) % (i + 1)
+		password[i], password[j] = password[j], password[i]
+	}
+
+	return string(password), nil
+}
+
 func hashPassword(password string) (string, *errors.Error) {
 	salt := make([]byte, argon2SaltLen)
 	if _, err := rand.Read(salt); err != nil {
