@@ -2,12 +2,14 @@ package handlers
 
 import (
 	"backend/internal/application"
+	handlererrors "backend/internal/application/errors"
 	apphandlers "backend/internal/application/handlers"
 	"backend/internal/infra/http/middleware"
 	"backend/pkg/contracts"
 	"backend/pkg/jwt"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/google/uuid"
 )
 
 type AdminHandler struct {
@@ -71,4 +73,69 @@ func (h *AdminHandler) GetSystemStatus(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{
 		"initialized": initialized,
 	})
+}
+
+// RegisterAdminRoutes registers admin-only user management routes.
+func (h *AdminHandler) RegisterAdminRoutes(router fiber.Router) {
+	router.Get("/admin/users", h.ListUsers)
+	router.Post("/admin/users/invite", h.InviteUser)
+	router.Post("/admin/users/:id/reset-password", h.ResetPassword)
+	router.Delete("/admin/users/:id", h.DeleteUser)
+}
+
+// ListUsers handles GET /admin/users
+func (h *AdminHandler) ListUsers(c *fiber.Ctx) error {
+	service, _ := h.serviceFactory()
+	users, serviceErr := service.ListUsers(middleware.ContextWithClaims(c))
+	if serviceErr != nil {
+		return serviceErr
+	}
+	return c.JSON(users)
+}
+
+// InviteUser handles POST /admin/users/invite
+func (h *AdminHandler) InviteUser(c *fiber.Ctx) error {
+	var request contracts.InviteUser
+	if err := c.BodyParser(&request); err != nil {
+		return handlererrors.ReturnBadRequest("Invalid request body")
+	}
+
+	service, uow := h.serviceFactory()
+	response, serviceErr := service.InviteUser(middleware.ContextWithClaims(c), uow, request)
+	if serviceErr != nil {
+		return serviceErr
+	}
+
+	return c.Status(fiber.StatusCreated).JSON(response)
+}
+
+// ResetPassword handles POST /admin/users/:id/reset-password
+func (h *AdminHandler) ResetPassword(c *fiber.Ctx) error {
+	userID, err := uuid.Parse(c.Params("id"))
+	if err != nil {
+		return handlererrors.ReturnBadRequest("invalid user ID")
+	}
+
+	service, uow := h.serviceFactory()
+	response, serviceErr := service.ResetUserPassword(middleware.ContextWithClaims(c), uow, userID)
+	if serviceErr != nil {
+		return serviceErr
+	}
+
+	return c.JSON(response)
+}
+
+// DeleteUser handles DELETE /admin/users/:id
+func (h *AdminHandler) DeleteUser(c *fiber.Ctx) error {
+	userID, err := uuid.Parse(c.Params("id"))
+	if err != nil {
+		return handlererrors.ReturnBadRequest("invalid user ID")
+	}
+
+	service, uow := h.serviceFactory()
+	if serviceErr := service.DeleteUser(middleware.ContextWithClaims(c), uow, userID); serviceErr != nil {
+		return serviceErr
+	}
+
+	return c.SendStatus(fiber.StatusNoContent)
 }
