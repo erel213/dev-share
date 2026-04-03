@@ -182,9 +182,13 @@ func (r *templateRepository) List(ctx context.Context, opts repository.ListOptio
 		return nil, err
 	}
 
-	query, args, err := builder.
+	qb := builder.
 		Select("id", "name", "workspace_id", "path", "created_at", "updated_at").
-		From("templates").
+		From("templates")
+	for col, val := range opts.FilterBy {
+		qb = qb.Where(sq.Eq{col: val})
+	}
+	query, args, err := qb.
 		OrderBy(fmt.Sprintf("%s %s", opts.SortBy, opts.Order)).
 		Limit(uint64(opts.Limit)).
 		Offset(uint64(opts.Offset)).

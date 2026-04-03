@@ -248,9 +248,13 @@ func (r *environmentRepository) List(ctx context.Context, opts repository.ListOp
 		return nil, err
 	}
 
-	return r.queryMany(ctx, builder.
+	qb := builder.
 		Select(envColumns...).
-		From("environments").
+		From("environments")
+	for col, val := range opts.FilterBy {
+		qb = qb.Where(sq.Eq{col: val})
+	}
+	return r.queryMany(ctx, qb.
 		OrderBy(fmt.Sprintf("%s %s", opts.SortBy, opts.Order)).
 		Limit(uint64(opts.Limit)).
 		Offset(uint64(opts.Offset)),

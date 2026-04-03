@@ -237,9 +237,13 @@ func (r *userRepository) List(ctx context.Context, opts repository.ListOptions) 
 		return nil, err
 	}
 
-	query, args, err := builder.
+	qb := builder.
 		Select("id", "oauth_provider", "oauth_id", "password", "name", "email", "role", "workspace_id", "created_at", "updated_at").
-		From("users").
+		From("users")
+	for col, val := range opts.FilterBy {
+		qb = qb.Where(sq.Eq{col: val})
+	}
+	query, args, err := qb.
 		OrderBy(fmt.Sprintf("%s %s", opts.SortBy, opts.Order)).
 		Limit(uint64(opts.Limit)).
 		Offset(uint64(opts.Offset)).
