@@ -13,7 +13,7 @@ func TestNewEnvironment(t *testing.T) {
 	workspaceID := uuid.New()
 	templateID := uuid.New()
 
-	env := NewEnvironment(name, description, createdBy, workspaceID, templateID)
+	env := NewEnvironment(name, description, createdBy, workspaceID, templateID, nil)
 
 	if env.ID == uuid.Nil {
 		t.Error("expected non-nil UUID")
