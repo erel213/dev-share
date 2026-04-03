@@ -18,7 +18,7 @@ import (
 var envColumns = []string{
 	"id", "name", "created_at", "created_by", "description",
 	"workspace_id", "template_id", "status", "last_applied_at",
-	"last_operation", "last_error", "updated_at",
+	"last_operation", "last_error", "ttl_seconds", "updated_at",
 }
 
 type environmentRepository struct {
@@ -34,6 +34,7 @@ func scanEnvironment(scanner interface{ Scan(dest ...any) error }) (*domain.Envi
 	var env domain.Environment
 	var cat, uat, lat TimestampDest
 	var lastOp, lastErr sql.NullString
+	var ttlSeconds sql.NullInt64
 	var status string
 
 	err := scanner.Scan(
@@ -48,6 +49,7 @@ func scanEnvironment(scanner interface{ Scan(dest ...any) error }) (*domain.Envi
 		&lat,
 		&lastOp,
 		&lastErr,
+		&ttlSeconds,
 		&uat,
 	)
 	if err != nil {
@@ -68,6 +70,10 @@ func scanEnvironment(scanner interface{ Scan(dest ...any) error }) (*domain.Envi
 	if lastErr.Valid {
 		env.LastError = lastErr.String
 	}
+	if ttlSeconds.Valid {
+		v := int(ttlSeconds.Int64)
+		env.TTLSeconds = &v
+	}
 
 	return &env, nil
 }
@@ -79,8 +85,8 @@ func (r *environmentRepository) Create(ctx context.Context, env *domain.Environm
 
 	query, args, err := builder.
 		Insert("environments").
-		Columns("id", "name", "description", "created_by", "workspace_id", "template_id", "status").
-		Values(env.ID, env.Name, env.Description, env.CreatedBy, env.WorkspaceID, env.TemplateID, string(env.Status)).
+		Columns("id", "name", "description", "created_by", "workspace_id", "template_id", "status", "ttl_seconds").
+		Values(env.ID, env.Name, env.Description, env.CreatedBy, env.WorkspaceID, env.TemplateID, string(env.Status), env.TTLSeconds).
 		Suffix("RETURNING created_at, updated_at").
 		ToSql()
 	if err != nil {
@@ -189,6 +195,7 @@ func (r *environmentRepository) Update(ctx context.Context, env *domain.Environm
 		Set("status", string(env.Status)).
 		Set("last_operation", nilIfEmpty(env.LastOperation)).
 		Set("last_error", nilIfEmpty(env.LastError)).
+		Set("ttl_seconds", env.TTLSeconds).
 		Set("updated_at", sq.Expr("CURRENT_TIMESTAMP")).
 		Where(sq.Eq{"id": env.ID}).
 		Suffix("RETURNING updated_at")

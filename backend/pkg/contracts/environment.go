@@ -7,6 +7,7 @@ type (
 		Name        string    `json:"name" validate:"required,min=3,max=255"`
 		Description string    `json:"description" validate:"omitempty,max=1000"`
 		TemplateID  uuid.UUID `json:"template_id" validate:"required,uuid4"`
+		TTLSeconds  *int      `json:"ttl_seconds" validate:"omitempty,min=60"`
 	}
 
 	GetEnvironment struct {

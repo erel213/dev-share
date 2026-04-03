@@ -53,10 +53,11 @@ type Environment struct {
 	LastAppliedAt *time.Time        `json:"last_applied_at,omitempty"`
 	LastOperation string            `json:"last_operation,omitempty"`
 	LastError     string            `json:"last_error,omitempty"`
+	TTLSeconds    *int              `json:"ttl_seconds,omitempty"`
 	UpdatedAt     time.Time         `json:"updated_at"`
 }
 
-func NewEnvironment(name, description string, createdBy, workspaceID, templateId uuid.UUID) *Environment {
+func NewEnvironment(name, description string, createdBy, workspaceID, templateId uuid.UUID, ttlSeconds *int) *Environment {
 	return &Environment{
 		ID:          uuid.New(),
 		Name:        name,
@@ -67,6 +68,7 @@ func NewEnvironment(name, description string, createdBy, workspaceID, templateId
 		CreatedAt:   time.Now().UTC(),
 		UpdatedAt:   time.Now().UTC(),
 		TemplateID:  templateId,
+		TTLSeconds:  ttlSeconds,
 	}
 }
 
