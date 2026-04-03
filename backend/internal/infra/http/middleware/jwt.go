@@ -65,10 +65,28 @@ func ClearTokenCookie(c *fiber.Ctx, cfg jwt.CookieConfig) {
 	})
 }
 
-// RequireRole returns a Fiber middleware that checks the user's role from JWT claims.
+// RequireRole returns a Fiber middleware that checks the user's role from JWT claims
+// for all HTTP methods. The user's role must be at least minRole.
+func RequireRole(minRole domain.Role) fiber.Handler {
+	return func(c *fiber.Ctx) error {
+		claims, ok := GetClaims(c)
+		if !ok {
+			return domainerrors.Unauthorized("missing claims")
+		}
+
+		userRole := domain.Role(claims.Role)
+		if !userRole.IsAtLeast(minRole) {
+			return domainerrors.Forbidden(c.Path(), c.Method())
+		}
+
+		return c.Next()
+	}
+}
+
+// RequireRoleForWrite returns a Fiber middleware that checks the user's role from JWT claims.
 // GET requests are allowed for all authenticated users (read access).
 // For other methods, the user's role must be at least minRole.
-func RequireRole(minRole domain.Role) fiber.Handler {
+func RequireRoleForWrite(minRole domain.Role) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		if c.Method() == fiber.MethodGet {
 			return c.Next()
