@@ -158,10 +158,14 @@ func main() {
 	envVarValueHandler.RegisterRoutes(protected)
 
 	// Editor-level routes — editor and admin can write, all can read (GET passes through)
-	editorProtected := protected.Group("", middleware.RequireRole(domain.RoleEditor))
+	editorProtected := protected.Group("", middleware.RequireRoleForWrite(domain.RoleEditor))
 	workspaceHandler.RegisterRoutes(editorProtected)
 	templateHandler.RegisterRoutes(editorProtected)
 	templateVariableHandler.RegisterRoutes(editorProtected)
+
+	// Admin-level routes — only admin can access (all methods including GET)
+	adminProtected := protected.Group("", middleware.RequireRole(domain.RoleAdmin))
+	adminHandler.RegisterAdminRoutes(adminProtected)
 
 	// Get port from environment or default to 8080
 	slog.Info("starting server", "port", cfg.Port)
