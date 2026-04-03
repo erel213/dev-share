@@ -1,4 +1,4 @@
-import { Home, LayoutTemplate, FolderOpen, LogOut, ChevronsUpDown } from 'lucide-react'
+import { Home, LayoutTemplate, FolderOpen, Users, LogOut, ChevronsUpDown } from 'lucide-react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import {
   Sidebar,
@@ -82,6 +82,33 @@ export default function AppSidebar() {
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
+
+        {user?.role === 'admin' && (
+          <SidebarGroup>
+            <SidebarGroupLabel>Admin</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    asChild
+                    isActive={location.pathname === '/users'}
+                  >
+                    <a
+                      href="/users"
+                      onClick={(e) => {
+                        e.preventDefault()
+                        navigate('/users')
+                      }}
+                    >
+                      <Users />
+                      <span>Users</span>
+                    </a>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
       </SidebarContent>
 
       <SidebarFooter>
