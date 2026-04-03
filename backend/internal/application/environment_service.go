@@ -95,6 +95,16 @@ func (s EnvironmentService) CreateEnvironment(ctx context.Context, request contr
 
 	createdBy, _ := uuid.Parse(claims.ID)
 	env := domain.NewEnvironment(request.Name, request.Description, createdBy, workspaceID, request.TemplateID, request.TTLSeconds)
+	//Verify user didn't created env from the template
+	userCreatedEnv, repoErr := s.envRepo.GetByCreatedBy(ctx, createdBy)
+	for _, env := range userCreatedEnv {
+		if env.TemplateID == request.TemplateID {
+			return nil, apperrors.ReturnConflict("you have already created an environment from this template")
+		}
+	}
+	if repoErr != nil {
+		return nil, repoErr
+	}
 
 	// Copy template files into execution directory.
 	if err := s.executionStorage.CopyTemplateToExecution(template.Path, env.ExecutionPath()); err != nil {
