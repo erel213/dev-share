@@ -50,7 +50,7 @@ func (s UserService) CreateLocalUser(ctx context.Context, uow handlers.UnitOfWor
 		request.Name,
 		request.Email,
 		&request.Password,
-		false,
+		domain.RoleUser,
 		request.WorkspaceID,
 	)
 
@@ -98,7 +98,7 @@ func (s UserService) AuthenticateLocalUser(ctx context.Context, request contract
 	resp := contracts.LoginResponse{
 		UserID:      user.ID,
 		Name:        user.Name,
-		IsAdmin:     user.IsAdmin,
+		Role:        string(user.Role),
 		WorkspaceID: user.WorkspaceID,
 	}
 	return resp, nil

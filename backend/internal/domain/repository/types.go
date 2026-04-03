@@ -6,10 +6,11 @@ import (
 )
 
 type ListOptions struct {
-	Limit  int
-	Offset int
-	SortBy string
-	Order  string // "ASC" or "DESC"
+	Limit    int
+	Offset   int
+	SortBy   string
+	Order    string // "ASC" or "DESC"
+	FilterBy map[string]string
 }
 
 func (o *ListOptions) Validate() *pkgerrors.Error {

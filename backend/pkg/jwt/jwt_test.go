@@ -2,7 +2,6 @@ package jwt
 
 import (
 	"errors"
-	"os"
 	"testing"
 	"time"
 
@@ -22,48 +21,37 @@ const (
 func TestNewService(t *testing.T) {
 	tests := []struct {
 		name        string
-		envSecret   string
-		shouldSetup bool
+		secret      string
 		wantErr     bool
 		expectedErr *apperrors.Error
 	}{
 		{
-			name:        "valid secret",
-			envSecret:   testSecret,
-			shouldSetup: true,
-			wantErr:     false,
+			name:    "valid secret",
+			secret:  testSecret,
+			wantErr: false,
 		},
 		{
 			name:        "missing secret",
-			envSecret:   "",
-			shouldSetup: true,
+			secret:      "",
 			wantErr:     true,
 			expectedErr: ErrMissingSecret,
 		},
 		{
 			name:        "weak secret",
-			envSecret:   testShortSecret,
-			shouldSetup: true,
+			secret:      testShortSecret,
 			wantErr:     true,
 			expectedErr: ErrWeakSecret,
 		},
 		{
-			name:        "secret at minimum length",
-			envSecret:   "12345678901234567890123456789012", // exactly 32 chars
-			shouldSetup: true,
-			wantErr:     false,
+			name:    "secret at minimum length",
+			secret:  "12345678901234567890123456789012", // exactly 32 chars
+			wantErr: false,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Setup environment
-			if tt.shouldSetup {
-				os.Setenv("JWT_SECRET", tt.envSecret)
-				defer os.Unsetenv("JWT_SECRET")
-			}
-
-			service, err := NewService()
+			service, err := NewService(tt.secret)
 
 			if tt.wantErr {
 				if err == nil {
@@ -86,19 +74,15 @@ func TestNewService(t *testing.T) {
 				return
 			}
 
-			if string(service.secret) != tt.envSecret {
-				t.Errorf("NewService() secret = %v, want %v", string(service.secret), tt.envSecret)
+			if string(service.secret) != tt.secret {
+				t.Errorf("NewService() secret = %v, want %v", string(service.secret), tt.secret)
 			}
 		})
 	}
 }
 
 func TestGenerateToken(t *testing.T) {
-	// Setup service
-	os.Setenv("JWT_SECRET", testSecret)
-	defer os.Unsetenv("JWT_SECRET")
-
-	service, err := NewService()
+	service, err := NewService(testSecret)
 	if err != nil {
 		t.Fatalf("Failed to create service: %v", err)
 	}
@@ -135,7 +119,7 @@ func TestGenerateToken(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			token, err := service.GenerateToken(tt.id, tt.userName, false, tt.workspaceID)
+			token, err := service.GenerateToken(tt.id, tt.userName, "user", tt.workspaceID)
 
 			if tt.wantErr {
 				if err == nil {
@@ -175,15 +159,12 @@ func TestGenerateToken(t *testing.T) {
 }
 
 func TestGenerateToken_Expiration(t *testing.T) {
-	os.Setenv("JWT_SECRET", testSecret)
-	defer os.Unsetenv("JWT_SECRET")
-
-	service, err := NewService()
+	service, err := NewService(testSecret)
 	if err != nil {
 		t.Fatalf("Failed to create service: %v", err)
 	}
 
-	token, err := service.GenerateToken(testUserID, testUserName, false, testWorkspaceID)
+	token, err := service.GenerateToken(testUserID, testUserName, "user", testWorkspaceID)
 	if err != nil {
 		t.Fatalf("GenerateToken() failed: %v", err)
 	}
@@ -222,16 +203,13 @@ func TestGenerateToken_Expiration(t *testing.T) {
 }
 
 func TestValidateToken(t *testing.T) {
-	os.Setenv("JWT_SECRET", testSecret)
-	defer os.Unsetenv("JWT_SECRET")
-
-	service, err := NewService()
+	service, err := NewService(testSecret)
 	if err != nil {
 		t.Fatalf("Failed to create service: %v", err)
 	}
 
 	// Generate a valid token for testing
-	validToken, err := service.GenerateToken(testUserID, testUserName, false, testWorkspaceID)
+	validToken, err := service.GenerateToken(testUserID, testUserName, "user", testWorkspaceID)
 	if err != nil {
 		t.Fatalf("Failed to generate token: %v", err)
 	}
@@ -373,16 +351,13 @@ func TestValidateToken(t *testing.T) {
 }
 
 func TestValidateToken_TokenTampering(t *testing.T) {
-	os.Setenv("JWT_SECRET", testSecret)
-	defer os.Unsetenv("JWT_SECRET")
-
-	service, err := NewService()
+	service, err := NewService(testSecret)
 	if err != nil {
 		t.Fatalf("Failed to create service: %v", err)
 	}
 
 	// Generate a valid token
-	validToken, err := service.GenerateToken(testUserID, testUserName, false, testWorkspaceID)
+	validToken, err := service.GenerateToken(testUserID, testUserName, "user", testWorkspaceID)
 	if err != nil {
 		t.Fatalf("Failed to generate token: %v", err)
 	}
@@ -410,10 +385,7 @@ func TestValidateToken_TokenTampering(t *testing.T) {
 }
 
 func TestService_MultipleTokens(t *testing.T) {
-	os.Setenv("JWT_SECRET", testSecret)
-	defer os.Unsetenv("JWT_SECRET")
-
-	service, err := NewService()
+	service, err := NewService(testSecret)
 	if err != nil {
 		t.Fatalf("Failed to create service: %v", err)
 	}
@@ -423,7 +395,7 @@ func TestService_MultipleTokens(t *testing.T) {
 	// which is expected behavior. We add delays to ensure different timestamps.
 	tokens := make(map[string]bool)
 	for i := 0; i < 5; i++ {
-		token, err := service.GenerateToken(testUserID, testUserName, false, testWorkspaceID)
+		token, err := service.GenerateToken(testUserID, testUserName, "user", testWorkspaceID)
 		if err != nil {
 			t.Errorf("GenerateToken() iteration %d failed: %v", i, err)
 			continue

@@ -20,7 +20,7 @@ export function useAuth() {
   const mapLoginResponse = (data: LoginResponse) => ({
     id: data.user_id,
     name: data.name,
-    isAdmin: data.is_admin,
+    role: data.role,
     workspaceId: data.workspace_id,
   })
 

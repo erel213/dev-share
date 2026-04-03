@@ -61,7 +61,7 @@ func TestNewBaseUser(t *testing.T) {
 	workspaceID := uuid.New()
 
 	before := time.Now()
-	baseUser := NewBaseUser(name, email, false, workspaceID)
+	baseUser := NewBaseUser(name, email, RoleUser, workspaceID)
 	after := time.Now()
 
 	if baseUser.ID == uuid.Nil {
@@ -173,7 +173,7 @@ func TestUserFactory_Create_LocalUser(t *testing.T) {
 	password := "ValidPassword123!"
 	workspaceID := uuid.New()
 
-	userAggregate, err := factory.Create(nil, nil, name, email, &password, false, workspaceID)
+	userAggregate, err := factory.Create(nil, nil, name, email, &password, RoleUser, workspaceID)
 
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -203,7 +203,7 @@ func TestUserFactory_Create_ThirdPartyUser(t *testing.T) {
 	oauthID := uuid.New()
 	workspaceID := uuid.New()
 
-	userAggregate, err := factory.Create(&oauthProvider, &oauthID, name, email, nil, false, workspaceID)
+	userAggregate, err := factory.Create(&oauthProvider, &oauthID, name, email, nil, RoleUser, workspaceID)
 
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -231,7 +231,7 @@ func TestUserFactory_Create_NoAuthMethod(t *testing.T) {
 	email := "test@example.com"
 	workspaceID := uuid.New()
 
-	userAggregate, err := factory.Create(nil, nil, name, email, nil, false, workspaceID)
+	userAggregate, err := factory.Create(nil, nil, name, email, nil, RoleUser, workspaceID)
 
 	if err == nil {
 		t.Fatal("expected error but got none")
@@ -252,7 +252,7 @@ func TestUserFactory_Create_PartialOAuthCredentials(t *testing.T) {
 
 	t.Run("provider without ID", func(t *testing.T) {
 		oauthProvider := OauthProviderGitHub
-		userAggregate, err := factory.Create(&oauthProvider, nil, name, email, nil, false, workspaceID)
+		userAggregate, err := factory.Create(&oauthProvider, nil, name, email, nil, RoleUser, workspaceID)
 
 		if err == nil {
 			t.Fatal("expected error but got none")
@@ -264,13 +264,73 @@ func TestUserFactory_Create_PartialOAuthCredentials(t *testing.T) {
 
 	t.Run("ID without provider", func(t *testing.T) {
 		oauthID := uuid.New()
-		userAggregate, err := factory.Create(nil, &oauthID, name, email, nil, false, workspaceID)
+		userAggregate, err := factory.Create(nil, &oauthID, name, email, nil, RoleUser, workspaceID)
 
 		if err == nil {
 			t.Fatal("expected error but got none")
 		}
 		if userAggregate.ID != uuid.Nil {
 			t.Error("expected empty user aggregate")
+		}
+	})
+}
+
+func TestGenerateRandomPassword(t *testing.T) {
+	tests := []struct {
+		name           string
+		length         int
+		expectedMinLen int
+	}{
+		{name: "default length 16", length: 16, expectedMinLen: 16},
+		{name: "short length clamped to 8", length: 4, expectedMinLen: 8},
+		{name: "exact minimum 8", length: 8, expectedMinLen: 8},
+		{name: "long password 32", length: 32, expectedMinLen: 32},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			pw, err := GenerateRandomPassword(tt.length)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if len(pw) < tt.expectedMinLen {
+				t.Errorf("expected length >= %d, got %d", tt.expectedMinLen, len(pw))
+			}
+
+			var hasUpper, hasLower, hasDigit, hasSpecial bool
+			for _, c := range pw {
+				switch {
+				case c >= 'A' && c <= 'Z':
+					hasUpper = true
+				case c >= 'a' && c <= 'z':
+					hasLower = true
+				case c >= '0' && c <= '9':
+					hasDigit = true
+				default:
+					hasSpecial = true
+				}
+			}
+			if !hasUpper {
+				t.Error("password missing uppercase letter")
+			}
+			if !hasLower {
+				t.Error("password missing lowercase letter")
+			}
+			if !hasDigit {
+				t.Error("password missing digit")
+			}
+			if !hasSpecial {
+				t.Error("password missing special character")
+			}
+		})
+	}
+
+	// Uniqueness test
+	t.Run("uniqueness", func(t *testing.T) {
+		pw1, _ := GenerateRandomPassword(16)
+		pw2, _ := GenerateRandomPassword(16)
+		if pw1 == pw2 {
+			t.Error("two consecutive calls should produce different passwords")
 		}
 	})
 }
@@ -356,7 +416,7 @@ func TestUserFactory_Create_BothAuthMethods(t *testing.T) {
 	oauthID := uuid.New()
 	workspaceID := uuid.New()
 
-	userAggregate, err := factory.Create(&oauthProvider, &oauthID, name, email, &password, false, workspaceID)
+	userAggregate, err := factory.Create(&oauthProvider, &oauthID, name, email, &password, RoleUser, workspaceID)
 
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)

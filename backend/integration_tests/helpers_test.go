@@ -38,7 +38,7 @@ type ErrorResponse struct {
 type AuthContext struct {
 	UserID      uuid.UUID
 	UserName    string
-	IsAdmin     bool
+	Role        string
 	WorkspaceID uuid.UUID
 }
 
@@ -72,7 +72,7 @@ func addAuth(t *testing.T, req *http.Request, auth AuthContext) {
 	token, err := jwtSvc.GenerateToken(
 		auth.UserID.String(),
 		auth.UserName,
-		auth.IsAdmin,
+		auth.Role,
 		auth.WorkspaceID.String(),
 	)
 	if err != nil {
@@ -637,4 +637,119 @@ func InitializeAdmin(t *testing.T, adminName, adminEmail, adminPassword, workspa
 	}
 
 	return nil, resp.StatusCode
+}
+
+// Admin user management helpers
+
+type InviteUserResponse struct {
+	UserID   uuid.UUID `json:"user_id"`
+	Name     string    `json:"name"`
+	Email    string    `json:"email"`
+	Role     string    `json:"role"`
+	Password string    `json:"password"`
+}
+
+type ResetPasswordResponse struct {
+	UserID   uuid.UUID `json:"user_id"`
+	Password string    `json:"password"`
+}
+
+type AdminUserListResponse struct {
+	ID          uuid.UUID `json:"id"`
+	Name        string    `json:"name"`
+	Email       string    `json:"email"`
+	Role        string    `json:"role"`
+	WorkspaceID uuid.UUID `json:"workspace_id"`
+}
+
+func AdminInviteUser(t *testing.T, auth AuthContext, name, email, role string) (*InviteUserResponse, int) {
+	t.Helper()
+
+	payload := map[string]interface{}{
+		"name":  name,
+		"email": email,
+		"role":  role,
+	}
+
+	body, _ := json.Marshal(payload)
+	req, _ := http.NewRequest(http.MethodPost, BaseURL+"/api/v1/admin/users/invite", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	addAuth(t, req, auth)
+
+	resp, err := HTTPClient.Do(req)
+	if err != nil {
+		t.Fatalf("failed to invite user: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusCreated {
+		var invite InviteUserResponse
+		if err := json.NewDecoder(resp.Body).Decode(&invite); err != nil {
+			t.Fatalf("failed to decode invite response: %v", err)
+		}
+		return &invite, resp.StatusCode
+	}
+
+	return nil, resp.StatusCode
+}
+
+func AdminResetUserPassword(t *testing.T, auth AuthContext, userID uuid.UUID) (*ResetPasswordResponse, int) {
+	t.Helper()
+
+	req, _ := http.NewRequest(http.MethodPost, fmt.Sprintf("%s/api/v1/admin/users/%s/reset-password", BaseURL, userID), nil)
+	addAuth(t, req, auth)
+
+	resp, err := HTTPClient.Do(req)
+	if err != nil {
+		t.Fatalf("failed to reset password: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusOK {
+		var reset ResetPasswordResponse
+		if err := json.NewDecoder(resp.Body).Decode(&reset); err != nil {
+			t.Fatalf("failed to decode reset password response: %v", err)
+		}
+		return &reset, resp.StatusCode
+	}
+
+	return nil, resp.StatusCode
+}
+
+func AdminListUsers(t *testing.T, auth AuthContext) ([]*AdminUserListResponse, int) {
+	t.Helper()
+
+	req, _ := http.NewRequest(http.MethodGet, BaseURL+"/api/v1/admin/users", nil)
+	addAuth(t, req, auth)
+
+	resp, err := HTTPClient.Do(req)
+	if err != nil {
+		t.Fatalf("failed to list users: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusOK {
+		var users []*AdminUserListResponse
+		if err := json.NewDecoder(resp.Body).Decode(&users); err != nil {
+			t.Fatalf("failed to decode users response: %v", err)
+		}
+		return users, resp.StatusCode
+	}
+
+	return nil, resp.StatusCode
+}
+
+func AdminDeleteUser(t *testing.T, auth AuthContext, userID uuid.UUID) int {
+	t.Helper()
+
+	req, _ := http.NewRequest(http.MethodDelete, fmt.Sprintf("%s/api/v1/admin/users/%s", BaseURL, userID), nil)
+	addAuth(t, req, auth)
+
+	resp, err := HTTPClient.Do(req)
+	if err != nil {
+		t.Fatalf("failed to delete user: %v", err)
+	}
+	defer resp.Body.Close()
+
+	return resp.StatusCode
 }

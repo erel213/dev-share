@@ -7,7 +7,7 @@ export interface ApiError {
 export interface User {
   id: string
   name: string
-  isAdmin: boolean
+  role: string
   workspaceId: string
 }
 
@@ -46,7 +46,7 @@ export interface AdminInitResponse {
 export interface LoginResponse {
   user_id: string
   name: string
-  is_admin: boolean
+  role: string
   workspace_id: string
 }
 
@@ -121,4 +121,33 @@ export interface EnvironmentVariableValue {
 export interface SetVariableValueEntry {
   template_variable_id: string
   value: string
+}
+
+export interface AdminUser {
+  id: string
+  name: string
+  email: string
+  role: string
+  workspace_id: string
+  created_at: string
+  updated_at: string
+}
+
+export interface InviteUserRequest {
+  name: string
+  email: string
+  role: string
+}
+
+export interface InviteUserResponse {
+  user_id: string
+  name: string
+  email: string
+  role: string
+  password: string
+}
+
+export interface ResetPasswordResponse {
+  user_id: string
+  password: string
 }

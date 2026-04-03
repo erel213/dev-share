@@ -186,10 +186,14 @@ func (r *workspaceRepository) List(ctx context.Context, opts repository.ListOpti
 		return nil, err
 	}
 
-	query, args, err := builder.
+	qb := builder.
 		Select("id", "name", "description", "admin_id", "created_at", "updated_at").
 		From("workspaces").
-		Where("deleted_at IS NULL").
+		Where("deleted_at IS NULL")
+	for col, val := range opts.FilterBy {
+		qb = qb.Where(sq.Eq{col: val})
+	}
+	query, args, err := qb.
 		OrderBy(fmt.Sprintf("%s %s", opts.SortBy, opts.Order)).
 		Limit(uint64(opts.Limit)).
 		Offset(uint64(opts.Offset)).

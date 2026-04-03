@@ -15,6 +15,12 @@ const WORKSPACE = {
 
 const TEMPLATE_NAME = "e2e-sample-template";
 
+const INVITED_USER = {
+  name: "E2E Invited User",
+  email: "invited@e2e-test.com",
+  role: "Editor",
+};
+
 // Path to sample Terraform files
 const SAMPLE_TEMPLATE_DIR = path.resolve(__dirname, "../sample-template");
 
@@ -130,5 +136,180 @@ test.describe.serial("Dev-Share E2E", () => {
     await expect(page.getByText("region")).toBeVisible({ timeout: 10000 });
     await expect(page.getByText("instance_type")).toBeVisible();
     await expect(page.getByText("ami_id")).toBeVisible();
+  });
+
+  // ── 4. User Management ────────────────────────────────────────────
+
+  let invitedUserPassword = "";
+
+  test("user management — admin can see Users link in sidebar", async ({
+    page,
+  }) => {
+    // Login as admin
+    await page.goto("/login");
+    await page.locator("#email").fill(ADMIN.email);
+    await page.locator("#password").fill(ADMIN.password);
+    await page.getByRole("button", { name: "Log in" }).click();
+    await expect(page).toHaveURL("/", { timeout: 10000 });
+
+    // Verify Users link in sidebar
+    await expect(page.getByRole("link", { name: "Users" })).toBeVisible();
+  });
+
+  test("user management — admin can navigate to users page", async ({
+    page,
+  }) => {
+    await page.goto("/login");
+    await page.locator("#email").fill(ADMIN.email);
+    await page.locator("#password").fill(ADMIN.password);
+    await page.getByRole("button", { name: "Log in" }).click();
+    await expect(page).toHaveURL("/", { timeout: 10000 });
+
+    await page.getByRole("link", { name: "Users" }).click();
+    await expect(page).toHaveURL("/users");
+    await expect(
+      page.getByRole("heading", { name: "Users" })
+    ).toBeVisible();
+  });
+
+  test("user management — admin can invite a user", async ({ page }) => {
+    await page.goto("/login");
+    await page.locator("#email").fill(ADMIN.email);
+    await page.locator("#password").fill(ADMIN.password);
+    await page.getByRole("button", { name: "Log in" }).click();
+    await expect(page).toHaveURL("/", { timeout: 10000 });
+
+    await page.goto("/users");
+    await expect(
+      page.getByRole("heading", { name: "Users" })
+    ).toBeVisible();
+
+    // Click Invite User button
+    await page.getByRole("button", { name: "Invite User" }).click();
+
+    // Fill in the invite form
+    await page.locator("#invite-name").fill(INVITED_USER.name);
+    await page.locator("#invite-email").fill(INVITED_USER.email);
+
+    // Select role
+    await page.getByRole("combobox", { name: "Role" }).click();
+    await page.getByRole("option", { name: INVITED_USER.role }).click();
+
+    // Submit
+    await page.getByRole("button", { name: "Invite" }).click();
+
+    // Verify password is shown
+    await expect(page.getByText("User Invited")).toBeVisible({
+      timeout: 10000,
+    });
+    await expect(
+      page.getByText("This password will not be shown again")
+    ).toBeVisible();
+
+    // Capture the generated password
+    const passwordInput = page.locator("input[readonly]");
+    invitedUserPassword = (await passwordInput.inputValue()) || "";
+    expect(invitedUserPassword.length).toBeGreaterThan(0);
+
+    // Close the dialog
+    await page.getByRole("button", { name: "Done" }).click();
+  });
+
+  test("user management — invited user appears in table", async ({
+    page,
+  }) => {
+    await page.goto("/login");
+    await page.locator("#email").fill(ADMIN.email);
+    await page.locator("#password").fill(ADMIN.password);
+    await page.getByRole("button", { name: "Log in" }).click();
+    await expect(page).toHaveURL("/", { timeout: 10000 });
+
+    await page.goto("/users");
+
+    // Verify invited user is in the table
+    await expect(page.getByText(INVITED_USER.name)).toBeVisible({
+      timeout: 10000,
+    });
+    await expect(page.getByText(INVITED_USER.email)).toBeVisible();
+  });
+
+  test("user management — admin can reset user password", async ({
+    page,
+  }) => {
+    await page.goto("/login");
+    await page.locator("#email").fill(ADMIN.email);
+    await page.locator("#password").fill(ADMIN.password);
+    await page.getByRole("button", { name: "Log in" }).click();
+    await expect(page).toHaveURL("/", { timeout: 10000 });
+
+    await page.goto("/users");
+    await expect(page.getByText(INVITED_USER.name)).toBeVisible({
+      timeout: 10000,
+    });
+
+    // Find the row for the invited user and click reset password
+    const userRow = page
+      .getByRole("row")
+      .filter({ hasText: INVITED_USER.email });
+    await userRow.getByTitle("Reset password").click();
+
+    // Confirm reset
+    await page.getByRole("button", { name: "Reset Password" }).click();
+
+    // Verify new password is shown
+    await expect(page.getByText("Password Reset")).toBeVisible({
+      timeout: 10000,
+    });
+    await expect(
+      page.getByText("This password will not be shown again")
+    ).toBeVisible();
+
+    // Capture new password for next test
+    const passwordInput = page.locator("input[readonly]");
+    invitedUserPassword = (await passwordInput.inputValue()) || "";
+    expect(invitedUserPassword.length).toBeGreaterThan(0);
+
+    await page.getByRole("button", { name: "Done" }).click();
+  });
+
+  test("user management — invited user can login with reset password", async ({
+    page,
+  }) => {
+    // Login as the invited user with the reset password
+    await page.goto("/login");
+    await page.locator("#email").fill(INVITED_USER.email);
+    await page.locator("#password").fill(invitedUserPassword);
+    await page.getByRole("button", { name: "Log in" }).click();
+
+    // Should reach dashboard
+    await expect(page).toHaveURL("/", { timeout: 10000 });
+  });
+
+  test("user management — admin can delete a user", async ({ page }) => {
+    // Login as admin
+    await page.goto("/login");
+    await page.locator("#email").fill(ADMIN.email);
+    await page.locator("#password").fill(ADMIN.password);
+    await page.getByRole("button", { name: "Log in" }).click();
+    await expect(page).toHaveURL("/", { timeout: 10000 });
+
+    await page.goto("/users");
+    await expect(page.getByText(INVITED_USER.name)).toBeVisible({
+      timeout: 10000,
+    });
+
+    // Find the row and click delete
+    const userRow = page
+      .getByRole("row")
+      .filter({ hasText: INVITED_USER.email });
+    await userRow.getByTitle("Delete user").click();
+
+    // Confirm deletion
+    await page.getByRole("button", { name: "Delete" }).click();
+
+    // Verify user is removed from table
+    await expect(page.getByText(INVITED_USER.email)).not.toBeVisible({
+      timeout: 10000,
+    });
   });
 });

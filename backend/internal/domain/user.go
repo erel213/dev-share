@@ -17,6 +17,11 @@ const (
 	OauthProviderGitHub OauthProvider = "github"
 	OauthProviderGoogle OauthProvider = "google"
 
+	// User roles ordered by privilege level (highest to lowest)
+	RoleAdmin  Role = "admin"
+	RoleEditor Role = "editor"
+	RoleUser   Role = "user"
+
 	// Argon2id parameters (OWASP recommendations)
 	argon2Time      = 2
 	argon2Memory    = 19 * 1024 // 19 MB
@@ -40,7 +45,7 @@ type (
 		ID          uuid.UUID `json:"id"`
 		Name        string    `json:"name"`
 		Email       string    `json:"email"`
-		IsAdmin     bool      `json:"is_admin"`
+		Role        Role      `json:"role"`
 		WorkspaceID uuid.UUID `json:"workspace_id"`
 		CreatedAt   time.Time `json:"created_at"`
 		UpdatedAt   time.Time `json:"updated_at"`
@@ -52,7 +57,29 @@ type (
 	}
 	UserFactory   struct{}
 	OauthProvider string
+	Role          string
 )
+
+// roleRank maps roles to their privilege level for comparison.
+var roleRank = map[Role]int{
+	RoleUser:   0,
+	RoleEditor: 1,
+	RoleAdmin:  2,
+}
+
+// IsAtLeast returns true if the role has at least the privilege level of minRole.
+func (r Role) IsAtLeast(minRole Role) bool {
+	return roleRank[r] >= roleRank[minRole]
+}
+
+// ValidRole returns true if the role is a known valid role.
+func ValidRole(r string) bool {
+	switch Role(r) {
+	case RoleAdmin, RoleEditor, RoleUser:
+		return true
+	}
+	return false
+}
 
 func NewLocalUser(password string) (LocalUser, *errors.Error) {
 	hashedPassword, err := hashPassword(password)
@@ -62,12 +89,12 @@ func NewLocalUser(password string) (LocalUser, *errors.Error) {
 	return LocalUser{Password: hashedPassword}, nil
 }
 
-func NewBaseUser(name, email string, isAdmin bool, workspaceID uuid.UUID) BaseUser {
+func NewBaseUser(name, email string, role Role, workspaceID uuid.UUID) BaseUser {
 	return BaseUser{
 		ID:          uuid.New(),
 		Name:        name,
 		Email:       email,
-		IsAdmin:     isAdmin,
+		Role:        role,
 		WorkspaceID: workspaceID,
 		CreatedAt:   time.Now(),
 		UpdatedAt:   time.Now(),
@@ -89,8 +116,8 @@ func (u *LocalUser) CheckPassword(password string) bool {
 	return valid
 }
 
-func (f *UserFactory) Create(oauthProvider *OauthProvider, oauthId *uuid.UUID, name, email string, password *string, isAdmin bool, workspaceID uuid.UUID) (UserAggregate, *errors.Error) {
-	baseUser := NewBaseUser(name, email, isAdmin, workspaceID)
+func (f *UserFactory) Create(oauthProvider *OauthProvider, oauthId *uuid.UUID, name, email string, password *string, role Role, workspaceID uuid.UUID) (UserAggregate, *errors.Error) {
+	baseUser := NewBaseUser(name, email, role, workspaceID)
 	if oauthProvider != nil && oauthId != nil {
 		thirdPartyUser, err := NewThirdPartyUser(string(*oauthProvider), oauthId.String())
 		if err != nil {
@@ -114,6 +141,55 @@ func (f *UserFactory) Create(oauthProvider *OauthProvider, oauthId *uuid.UUID, n
 
 	return UserAggregate{}, domainerrors.InvalidInput("authentication method", "either password or oauth credentials must be provided")
 
+}
+
+// GenerateRandomPassword generates a cryptographically secure random password
+// of the given length that satisfies the strongpassword validation rule.
+func GenerateRandomPassword(length int) (string, error) {
+	if length < 8 {
+		length = 8
+	}
+
+	const (
+		upperChars   = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+		lowerChars   = "abcdefghijklmnopqrstuvwxyz"
+		digitChars   = "0123456789"
+		specialChars = "@$!%*?&"
+		allChars     = upperChars + lowerChars + digitChars + specialChars
+	)
+
+	password := make([]byte, length)
+
+	// Ensure at least one of each required class
+	required := []string{upperChars, lowerChars, digitChars, specialChars}
+	for i, charset := range required {
+		b := make([]byte, 1)
+		if _, err := rand.Read(b); err != nil {
+			return "", fmt.Errorf("failed to generate random byte: %w", err)
+		}
+		password[i] = charset[int(b[0])%len(charset)]
+	}
+
+	// Fill remaining positions with random chars from full set
+	for i := len(required); i < length; i++ {
+		b := make([]byte, 1)
+		if _, err := rand.Read(b); err != nil {
+			return "", fmt.Errorf("failed to generate random byte: %w", err)
+		}
+		password[i] = allChars[int(b[0])%len(allChars)]
+	}
+
+	// Shuffle using Fisher-Yates with crypto/rand
+	for i := length - 1; i > 0; i-- {
+		b := make([]byte, 1)
+		if _, err := rand.Read(b); err != nil {
+			return "", fmt.Errorf("failed to generate random byte: %w", err)
+		}
+		j := int(b[0]) % (i + 1)
+		password[i], password[j] = password[j], password[i]
+	}
+
+	return string(password), nil
 }
 
 func hashPassword(password string) (string, *errors.Error) {

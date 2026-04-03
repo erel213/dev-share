@@ -15,6 +15,7 @@ import (
 
 	"backend/internal/application"
 	handlererrors "backend/internal/application/errors"
+	"backend/internal/domain"
 	"backend/internal/infra/filestorage"
 	"backend/internal/infra/http/handlers"
 	"backend/internal/infra/http/middleware"
@@ -40,15 +41,12 @@ var (
 )
 
 func TestMain(m *testing.M) {
-	// Ensure JWT_SECRET is set for the test process.
-	if os.Getenv("JWT_SECRET") == "" {
-		os.Setenv("JWT_SECRET", "your_jwt_secretyour_jwt_secretyour_jwt_secretyour_jwt_secret")
-	}
+	const testJWTSecret = "your_jwt_secretyour_jwt_secretyour_jwt_secretyour_jwt_secret"
 
 	HTTPClient = &http.Client{Timeout: 10 * time.Second}
 
 	var err error
-	jwtSvc, err = jwt.NewService()
+	jwtSvc, err = jwt.NewService(testJWTSecret)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "failed to create JWT service: %v\n", err)
 		os.Exit(1)
@@ -130,12 +128,12 @@ func TestMain(m *testing.M) {
 		return c.JSON(fiber.Map{"status": "healthy"})
 	})
 
-	adminHandler := handlers.NewAdminHandler(serviceFactory.NewAdminService)
+	adminHandler := handlers.NewAdminHandler(serviceFactory.NewAdminService, jwtSvc, "")
 	app.Post("/admin/init", adminHandler.InitializeSystem)
 
 	api := app.Group("/api/v1")
 
-	userHandler := handlers.NewUserHandler(serviceFactory.NewUserService)
+	userHandler := handlers.NewUserHandler(serviceFactory.NewUserService, jwtSvc)
 	userHandler.RegisterRoutes(api)
 
 	protected := api.Group("", middleware.RequireAuth(jwtSvc, jwt.DefaultCookieConfig()))
@@ -150,6 +148,10 @@ func TestMain(m *testing.M) {
 
 	envVarValueHandler := handlers.NewEnvironmentVariableValueHandler(serviceFactory.NewEnvironmentVariableValueService)
 	envVarValueHandler.RegisterRoutes(protected)
+
+	// Admin-level routes — only admin can access
+	adminProtected := protected.Group("", middleware.RequireRole(domain.RoleAdmin))
+	adminHandler.RegisterAdminRoutes(adminProtected)
 
 	// Listen on a random available port.
 	ln, err := net.Listen("tcp", "127.0.0.1:0")

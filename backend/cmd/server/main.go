@@ -1,18 +1,19 @@
 package main
 
 import (
-	"encoding/hex"
 	"log/slog"
 	"os"
 
 	"backend/internal/application"
 	handlererrors "backend/internal/application/errors"
+	"backend/internal/domain"
 	"backend/internal/infra/filestorage"
 	"backend/internal/infra/http/handlers"
 	"backend/internal/infra/http/middleware"
 	"backend/internal/infra/sqlite"
 	"backend/internal/infra/terraform"
 	"backend/internal/infra/tfparser"
+	"backend/pkg/config"
 	"backend/pkg/crypto"
 	"backend/pkg/jwt"
 	"backend/pkg/validation"
@@ -32,9 +33,17 @@ func main() {
 
 	slog.Info("starting dev-share backend")
 
-	// Database configuration from environment variables
+	// Load configuration
+	cfg, err := config.Load()
+	if err != nil {
+		slog.Error("failed to load configuration", "error", err)
+		os.Exit(1)
+	}
+	slog.Info("configuration loaded")
+
+	// Database configuration
 	dbConfig := sqlite.Config{
-		FilePath: getEnv("DB_FILE_PATH", "./devshare.db"),
+		FilePath: cfg.DBFilePath,
 	}
 
 	// Initialize database connection
@@ -56,7 +65,7 @@ func main() {
 	slog.Info("validation service initialized")
 
 	// Initialize JWT service
-	jwtService, err := jwt.NewService()
+	jwtService, err := jwt.NewService(cfg.JWTSecret)
 	if err != nil {
 		slog.Error("failed to initialize JWT service", "error", err)
 		os.Exit(1)
@@ -64,22 +73,11 @@ func main() {
 	slog.Info("JWT service initialized")
 
 	// File storage
-	templateStoragePath := getEnv("TEMPLATE_STORAGE_PATH", "./template_storage")
-	fileStorage := filestorage.NewLocalFileStorage(templateStoragePath)
-	slog.Info("file storage initialized", "path", templateStoragePath)
+	fileStorage := filestorage.NewLocalFileStorage(cfg.TemplateStoragePath)
+	slog.Info("file storage initialized", "path", cfg.TemplateStoragePath)
 
 	// Encryption
-	encryptionKeyHex := getEnv("ENCRYPTION_KEY", "")
-	if encryptionKeyHex == "" {
-		slog.Error("ENCRYPTION_KEY environment variable is required")
-		os.Exit(1)
-	}
-	encryptionKey, err := hex.DecodeString(encryptionKeyHex)
-	if err != nil {
-		slog.Error("ENCRYPTION_KEY must be a valid hex string", "error", err)
-		os.Exit(1)
-	}
-	encryptor, err := crypto.NewAESEncryptor(encryptionKey)
+	encryptor, err := crypto.NewAESEncryptor(cfg.EncryptionKey)
 	if err != nil {
 		slog.Error("failed to initialize encryptor", "error", err)
 		os.Exit(1)
@@ -89,13 +87,11 @@ func main() {
 	// TF Parser
 	tfParser := tfparser.NewHCLParser()
 	// Execution storage for terraform working directories
-	envExecutionPath := getEnv("ENV_EXECUTION_PATH", "./env_executions")
-	executionStorage := filestorage.NewLocalExecutionStorage(envExecutionPath, templateStoragePath)
-	slog.Info("execution storage initialized", "path", envExecutionPath)
+	executionStorage := filestorage.NewLocalExecutionStorage(cfg.EnvExecutionPath, cfg.TemplateStoragePath)
+	slog.Info("execution storage initialized", "path", cfg.EnvExecutionPath)
 
 	// Terraform executor
-	tfPluginCacheDir := getEnv("TF_PLUGIN_CACHE_DIR", "")
-	tfExecutor := terraform.NewExecutor(envExecutionPath, tfPluginCacheDir)
+	tfExecutor := terraform.NewExecutor(cfg.EnvExecutionPath, cfg.TFPluginCacheDir)
 	slog.Info("terraform executor initialized")
 
 	// Infrastructure factories
@@ -105,26 +101,26 @@ func main() {
 	// Application-layer service factory
 	serviceFactory := application.NewServiceFactory(uowFactory, repoFactory, validator, fileStorage, encryptor, tfParser, executionStorage, tfExecutor)
 
-	// Initialize handlers — method values satisfy the handler's func() (Service, UnitOfWork) field
-	userHandler := handlers.NewUserHandler(serviceFactory.NewUserService)
+	// Initialize handlers
+	userHandler := handlers.NewUserHandler(serviceFactory.NewUserService, jwtService)
 	workspaceHandler := handlers.NewWorkspaceHandler(serviceFactory.NewWorkspaceService)
 	templateHandler := handlers.NewTemplateHandler(serviceFactory.NewTemplateService)
 	templateVariableHandler := handlers.NewTemplateVariableHandler(serviceFactory.NewTemplateVariableService)
 	envVarValueHandler := handlers.NewEnvironmentVariableValueHandler(serviceFactory.NewEnvironmentVariableValueService)
 	environmentHandler := handlers.NewEnvironmentHandler(serviceFactory.NewEnvironmentService)
-	adminHandler := handlers.NewAdminHandler(serviceFactory.NewAdminService)
+	adminHandler := handlers.NewAdminHandler(serviceFactory.NewAdminService, jwtService, cfg.AdminInitToken)
 
 	app := fiber.New(fiber.Config{
 		AppName:      "Dev-Share Backend",
 		ErrorHandler: handlererrors.ErrorHandler(),
-		BodyLimit:    10 * 1024 * 1024, // 10MB
+		BodyLimit:    cfg.BodyLimitBytes,
 	})
 
 	// Middleware
 	app.Use(logger.New())
 	app.Use(recover.New())
 	app.Use(cors.New(cors.Config{
-		AllowOrigins:     "http://localhost:5173,http://localhost:3000",
+		AllowOrigins:     cfg.CORSAllowOrigins,
 		AllowCredentials: true,
 	}))
 
@@ -153,29 +149,28 @@ func main() {
 	// Public: user registration does not require authentication
 	userHandler.RegisterRoutes(api)
 
+	// Protected routes — all authenticated users
 	protected := api.Group("", middleware.RequireAuth(jwtService, jwt.DefaultCookieConfig()))
 	userHandler.RegisterProtectedRoutes(protected)
-	workspaceHandler.RegisterRoutes(protected)
-	templateHandler.RegisterRoutes(protected)
-	templateVariableHandler.RegisterRoutes(protected)
-	envVarValueHandler.RegisterRoutes(protected)
+
+	// Environment routes — all roles can read and write
 	environmentHandler.RegisterRoutes(protected)
+	envVarValueHandler.RegisterRoutes(protected)
+
+	// Editor-level routes — editor and admin can write, all can read (GET passes through)
+	editorProtected := protected.Group("", middleware.RequireRoleForWrite(domain.RoleEditor))
+	workspaceHandler.RegisterRoutes(editorProtected)
+	templateHandler.RegisterRoutes(editorProtected)
+	templateVariableHandler.RegisterRoutes(editorProtected)
+
+	// Admin-level routes — only admin can access (all methods including GET)
+	adminProtected := protected.Group("", middleware.RequireRole(domain.RoleAdmin))
+	adminHandler.RegisterAdminRoutes(adminProtected)
 
 	// Get port from environment or default to 8080
-	port := getEnv("PORT", "8080")
-
-	slog.Info("starting server", "port", port)
-	if err := app.Listen(":" + port); err != nil {
+	slog.Info("starting server", "port", cfg.Port)
+	if err := app.Listen(":" + cfg.Port); err != nil {
 		slog.Error("failed to start server", "error", err)
 		os.Exit(1)
 	}
-}
-
-// getEnv retrieves an environment variable or returns a default value
-func getEnv(key, defaultValue string) string {
-	value := os.Getenv(key)
-	if value == "" {
-		return defaultValue
-	}
-	return value
 }

@@ -20,6 +20,21 @@ import {
 
 type Step = 'welcome' | 'admin' | 'workspace' | 'review' | 'success'
 
+const passwordRules = [
+  { test: (pw: string) => pw.length >= 8, label: 'At least 8 characters' },
+  { test: (pw: string) => /[A-Z]/.test(pw), label: 'One uppercase letter' },
+  { test: (pw: string) => /[a-z]/.test(pw), label: 'One lowercase letter' },
+  { test: (pw: string) => /[0-9]/.test(pw), label: 'One number' },
+  {
+    test: (pw: string) => /[@$!%*?&]/.test(pw),
+    label: 'One special character (@$!%*?&)',
+  },
+]
+
+function isPasswordValid(pw: string): boolean {
+  return passwordRules.every((r) => r.test(pw))
+}
+
 export default function SetupPage() {
   const navigate = useNavigate()
   const [step, setStep] = useState<Step>('welcome')
@@ -134,6 +149,23 @@ export default function SetupPage() {
                   value={adminPassword}
                   onChange={(e) => setAdminPassword(e.target.value)}
                 />
+                {adminPassword && (
+                  <ul className="space-y-1 text-xs">
+                    {passwordRules.map((rule) => (
+                      <li
+                        key={rule.label}
+                        className={
+                          rule.test(adminPassword)
+                            ? 'text-green-600'
+                            : 'text-muted-foreground'
+                        }
+                      >
+                        {rule.test(adminPassword) ? '\u2713' : '\u2022'}{' '}
+                        {rule.label}
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="confirm-password">Confirm Password</Label>
@@ -153,6 +185,10 @@ export default function SetupPage() {
                 onClick={() => {
                   if (!adminName || !adminEmail || !adminPassword) {
                     setError('All fields are required')
+                    return
+                  }
+                  if (!isPasswordValid(adminPassword)) {
+                    setError('Password does not meet the requirements')
                     return
                   }
                   if (adminPassword !== confirmPassword) {
