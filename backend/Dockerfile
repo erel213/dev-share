@@ -24,7 +24,8 @@ RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o migrate ./cmd/mig
 FROM alpine:latest
 
 # Install ca-certificates for HTTPS requests
-RUN apk --no-cache add ca-certificates curl
+RUN apk --no-cache add ca-certificates curl sqlite
+RUN echo 'alias sqlite3="sqlite3 -cmd \".headers on\" -cmd \".mode table\""' >> /root/.profile
 
 WORKDIR /root/
 
