@@ -79,6 +79,7 @@ func (f *ServiceFactory) NewEnvironmentService() EnvironmentService {
 		f.executionStorage,
 		f.tfExecutor,
 		envVarService,
+		f.repoFactory.CreateTeardownQueueRepository(uow),
 	)
 }
 
