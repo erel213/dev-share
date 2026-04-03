@@ -307,9 +307,14 @@ test.describe.serial("Dev-Share E2E", () => {
     // Confirm deletion
     await page.getByRole("button", { name: "Delete" }).click();
 
-    // Verify user is removed from table
-    await expect(page.getByText(INVITED_USER.email)).not.toBeVisible({
+    // Wait for the confirmation dialog to close
+    await expect(page.getByRole("alertdialog")).not.toBeVisible({
       timeout: 10000,
     });
+
+    // Verify user is removed from table
+    await expect(
+      page.getByRole("row").filter({ hasText: INVITED_USER.email })
+    ).not.toBeVisible({ timeout: 10000 });
   });
 });
