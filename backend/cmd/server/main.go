@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"log/slog"
 	"os"
 
@@ -166,6 +167,13 @@ func main() {
 	// Admin-level routes — only admin can access (all methods including GET)
 	adminProtected := protected.Group("", middleware.RequireRole(domain.RoleAdmin))
 	adminHandler.RegisterAdminRoutes(adminProtected)
+
+	// Environment reaper — auto-destroys environments with expired TTLs.
+	reaper := application.NewEnvironmentReaper(uowFactory, repoFactory, executionStorage, tfExecutor, encryptor, validator)
+	reaperCtx, reaperCancel := context.WithCancel(context.Background())
+	defer reaperCancel()
+	go reaper.Start(reaperCtx)
+	slog.Info("environment reaper started")
 
 	// Get port from environment or default to 8080
 	slog.Info("starting server", "port", cfg.Port)

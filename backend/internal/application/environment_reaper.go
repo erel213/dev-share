@@ -3,13 +3,20 @@ package application
 import (
 	"context"
 	"log/slog"
+	"os"
+	"strconv"
 	"time"
 
+	apphandlers "backend/internal/application/handlers"
 	"backend/internal/domain"
 	"backend/internal/domain/repository"
 	"backend/internal/domain/storage"
 	"backend/internal/infra/terraform"
+	"backend/pkg/crypto"
+	"backend/pkg/validation"
 )
+
+const defaultReaperInterval = 30 * time.Second
 
 type EnvironmentReaper struct {
 	queueRepo        repository.TeardownQueueRepository
@@ -21,16 +28,33 @@ type EnvironmentReaper struct {
 }
 
 func NewEnvironmentReaper(
-	queueRepo repository.TeardownQueueRepository,
-	envRepo repository.EnvironmentRepository,
+	uowFactory apphandlers.UnitOfWorkFactory,
+	repoFactory apphandlers.RepositoryFactory,
 	executionStorage storage.ExecutionStorage,
 	tfExecutor *terraform.Executor,
-	envVarService EnvironmentVariableValueService,
-	interval time.Duration,
+	encryptor crypto.Encryptor,
+	validator *validation.Service,
 ) *EnvironmentReaper {
+	uow := uowFactory.Create()
+
+	envVarService := NewEnvironmentVariableValueService(
+		repoFactory.CreateEnvironmentVariableValueRepository(uow),
+		repoFactory.CreateTemplateVariableRepository(uow),
+		repoFactory.CreateEnvironmentRepository(uow),
+		encryptor,
+		validator,
+	)
+
+	interval := defaultReaperInterval
+	if intervalStr := os.Getenv("REAPER_INTERVAL_SECONDS"); intervalStr != "" {
+		if seconds, err := strconv.Atoi(intervalStr); err == nil && seconds > 0 {
+			interval = time.Duration(seconds) * time.Second
+		}
+	}
+
 	return &EnvironmentReaper{
-		queueRepo:        queueRepo,
-		envRepo:          envRepo,
+		queueRepo:        repoFactory.CreateTeardownQueueRepository(uow),
+		envRepo:          repoFactory.CreateEnvironmentRepository(uow),
 		executionStorage: executionStorage,
 		tfExecutor:       tfExecutor,
 		envVarService:    envVarService,
