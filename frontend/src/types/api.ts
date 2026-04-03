@@ -25,6 +25,7 @@ export interface Environment {
   name: string
   workspaceId: string
   status: 'pending' | 'running' | 'stopped' | 'failed'
+  ttl_seconds?: number
   createdAt: string
   updatedAt: string
 }
