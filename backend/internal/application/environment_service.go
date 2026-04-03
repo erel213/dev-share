@@ -26,6 +26,7 @@ type EnvironmentService struct {
 	executionStorage storage.ExecutionStorage
 	tfExecutor       *terraform.Executor
 	envVarService    EnvironmentVariableValueService
+	teardownRepo     repository.TeardownQueueRepository
 }
 
 func NewEnvironmentService(
@@ -36,6 +37,7 @@ func NewEnvironmentService(
 	executionStorage storage.ExecutionStorage,
 	tfExecutor *terraform.Executor,
 	envVarService EnvironmentVariableValueService,
+	teardownRepo repository.TeardownQueueRepository,
 ) EnvironmentService {
 	return EnvironmentService{
 		envRepo:          envRepo,
@@ -45,6 +47,7 @@ func NewEnvironmentService(
 		tfExecutor:       tfExecutor,
 		userRepo:         userRepo,
 		envVarService:    envVarService,
+		teardownRepo:     teardownRepo,
 	}
 }
 
@@ -91,7 +94,7 @@ func (s EnvironmentService) CreateEnvironment(ctx context.Context, request contr
 	}
 
 	createdBy, _ := uuid.Parse(claims.ID)
-	env := domain.NewEnvironment(request.Name, request.Description, createdBy, workspaceID, request.TemplateID)
+	env := domain.NewEnvironment(request.Name, request.Description, createdBy, workspaceID, request.TemplateID, request.TTLSeconds)
 
 	// Copy template files into execution directory.
 	if err := s.executionStorage.CopyTemplateToExecution(template.Path, env.ExecutionPath()); err != nil {
@@ -104,6 +107,18 @@ func (s EnvironmentService) CreateEnvironment(ctx context.Context, request contr
 			slog.Error("failed to cleanup execution dir after DB error", "path", env.ExecutionPath(), "error", cleanupErr)
 		}
 		return nil, apperrors.ReturnInternalError("failed to create environment: " + repoErr.Error())
+	}
+
+	// Enqueue auto-teardown if TTL is set.
+	if env.TTLSeconds != nil {
+		entry := &domain.TeardownEntry{
+			EnvironmentID: env.ID,
+			TeardownAt:    env.CreatedAt.Add(time.Duration(*env.TTLSeconds) * time.Second),
+			Status:        domain.TeardownStatusPending,
+		}
+		if enqueueErr := s.teardownRepo.Enqueue(ctx, entry); enqueueErr != nil {
+			slog.Error("failed to enqueue teardown entry", "env_id", env.ID, "error", enqueueErr)
+		}
 	}
 
 	// Run terraform init in the background.
