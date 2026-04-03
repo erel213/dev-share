@@ -15,6 +15,7 @@ import (
 
 	"backend/internal/application"
 	handlererrors "backend/internal/application/errors"
+	"backend/internal/domain"
 	"backend/internal/infra/filestorage"
 	"backend/internal/infra/http/handlers"
 	"backend/internal/infra/http/middleware"
@@ -147,6 +148,10 @@ func TestMain(m *testing.M) {
 
 	envVarValueHandler := handlers.NewEnvironmentVariableValueHandler(serviceFactory.NewEnvironmentVariableValueService)
 	envVarValueHandler.RegisterRoutes(protected)
+
+	// Admin-level routes — only admin can access
+	adminProtected := protected.Group("", middleware.RequireRole(domain.RoleAdmin))
+	adminHandler.RegisterAdminRoutes(adminProtected)
 
 	// Listen on a random available port.
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
