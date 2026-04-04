@@ -739,6 +739,252 @@ func AdminListUsers(t *testing.T, auth AuthContext) ([]*AdminUserListResponse, i
 	return nil, resp.StatusCode
 }
 
+// Group helpers
+
+type GroupResponse struct {
+	ID                 uuid.UUID `json:"id"`
+	Name               string    `json:"name"`
+	Description        string    `json:"description"`
+	WorkspaceID        uuid.UUID `json:"workspace_id"`
+	AccessAllTemplates bool      `json:"access_all_templates"`
+	CreatedAt          time.Time `json:"created_at"`
+	UpdatedAt          time.Time `json:"updated_at"`
+}
+
+func CreateGroup(t *testing.T, auth AuthContext, name, description string, accessAllTemplates bool) (*GroupResponse, int) {
+	t.Helper()
+
+	payload := map[string]interface{}{
+		"name":                 name,
+		"description":          description,
+		"access_all_templates": accessAllTemplates,
+	}
+
+	body, _ := json.Marshal(payload)
+	req, _ := http.NewRequest(http.MethodPost, BaseURL+"/api/v1/groups", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	addAuth(t, req, auth)
+
+	resp, err := HTTPClient.Do(req)
+	if err != nil {
+		t.Fatalf("failed to create group: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusCreated {
+		var group GroupResponse
+		if err := json.NewDecoder(resp.Body).Decode(&group); err != nil {
+			t.Fatalf("failed to decode group response: %v", err)
+		}
+		return &group, resp.StatusCode
+	}
+
+	return nil, resp.StatusCode
+}
+
+func GetGroup(t *testing.T, auth AuthContext, id uuid.UUID) (*GroupResponse, int) {
+	t.Helper()
+
+	req, _ := http.NewRequest(http.MethodGet, fmt.Sprintf("%s/api/v1/groups/%s", BaseURL, id), nil)
+	addAuth(t, req, auth)
+
+	resp, err := HTTPClient.Do(req)
+	if err != nil {
+		t.Fatalf("failed to get group: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusOK {
+		var group GroupResponse
+		if err := json.NewDecoder(resp.Body).Decode(&group); err != nil {
+			t.Fatalf("failed to decode group response: %v", err)
+		}
+		return &group, resp.StatusCode
+	}
+
+	return nil, resp.StatusCode
+}
+
+func ListGroups(t *testing.T, auth AuthContext) ([]*GroupResponse, int) {
+	t.Helper()
+
+	req, _ := http.NewRequest(http.MethodGet, BaseURL+"/api/v1/groups", nil)
+	addAuth(t, req, auth)
+
+	resp, err := HTTPClient.Do(req)
+	if err != nil {
+		t.Fatalf("failed to list groups: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusOK {
+		var groups []*GroupResponse
+		if err := json.NewDecoder(resp.Body).Decode(&groups); err != nil {
+			t.Fatalf("failed to decode groups response: %v", err)
+		}
+		return groups, resp.StatusCode
+	}
+
+	return nil, resp.StatusCode
+}
+
+func UpdateGroup(t *testing.T, auth AuthContext, id uuid.UUID, payload map[string]interface{}) (*GroupResponse, int) {
+	t.Helper()
+
+	body, _ := json.Marshal(payload)
+	req, _ := http.NewRequest(http.MethodPut, fmt.Sprintf("%s/api/v1/groups/%s", BaseURL, id), bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	addAuth(t, req, auth)
+
+	resp, err := HTTPClient.Do(req)
+	if err != nil {
+		t.Fatalf("failed to update group: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusOK {
+		var group GroupResponse
+		if err := json.NewDecoder(resp.Body).Decode(&group); err != nil {
+			t.Fatalf("failed to decode group response: %v", err)
+		}
+		return &group, resp.StatusCode
+	}
+
+	return nil, resp.StatusCode
+}
+
+func DeleteGroup(t *testing.T, auth AuthContext, id uuid.UUID) int {
+	t.Helper()
+
+	req, _ := http.NewRequest(http.MethodDelete, fmt.Sprintf("%s/api/v1/groups/%s", BaseURL, id), nil)
+	addAuth(t, req, auth)
+
+	resp, err := HTTPClient.Do(req)
+	if err != nil {
+		t.Fatalf("failed to delete group: %v", err)
+	}
+	defer resp.Body.Close()
+
+	return resp.StatusCode
+}
+
+func AddGroupMembers(t *testing.T, auth AuthContext, groupID uuid.UUID, userIDs []uuid.UUID) int {
+	t.Helper()
+
+	payload := map[string]interface{}{"user_ids": userIDs}
+	body, _ := json.Marshal(payload)
+	req, _ := http.NewRequest(http.MethodPost, fmt.Sprintf("%s/api/v1/groups/%s/members", BaseURL, groupID), bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	addAuth(t, req, auth)
+
+	resp, err := HTTPClient.Do(req)
+	if err != nil {
+		t.Fatalf("failed to add group members: %v", err)
+	}
+	defer resp.Body.Close()
+
+	return resp.StatusCode
+}
+
+func GetGroupMembers(t *testing.T, auth AuthContext, groupID uuid.UUID) ([]uuid.UUID, int) {
+	t.Helper()
+
+	req, _ := http.NewRequest(http.MethodGet, fmt.Sprintf("%s/api/v1/groups/%s/members", BaseURL, groupID), nil)
+	addAuth(t, req, auth)
+
+	resp, err := HTTPClient.Do(req)
+	if err != nil {
+		t.Fatalf("failed to get group members: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusOK {
+		var members []uuid.UUID
+		if err := json.NewDecoder(resp.Body).Decode(&members); err != nil {
+			t.Fatalf("failed to decode members response: %v", err)
+		}
+		return members, resp.StatusCode
+	}
+
+	return nil, resp.StatusCode
+}
+
+func RemoveGroupMember(t *testing.T, auth AuthContext, groupID, userID uuid.UUID) int {
+	t.Helper()
+
+	req, _ := http.NewRequest(http.MethodDelete, fmt.Sprintf("%s/api/v1/groups/%s/members/%s", BaseURL, groupID, userID), nil)
+	addAuth(t, req, auth)
+
+	resp, err := HTTPClient.Do(req)
+	if err != nil {
+		t.Fatalf("failed to remove group member: %v", err)
+	}
+	defer resp.Body.Close()
+
+	return resp.StatusCode
+}
+
+func AddGroupTemplateAccess(t *testing.T, auth AuthContext, groupID uuid.UUID, templateIDs []uuid.UUID) int {
+	t.Helper()
+
+	payload := map[string]interface{}{"template_ids": templateIDs}
+	body, _ := json.Marshal(payload)
+	req, _ := http.NewRequest(http.MethodPost, fmt.Sprintf("%s/api/v1/groups/%s/templates", BaseURL, groupID), bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	addAuth(t, req, auth)
+
+	resp, err := HTTPClient.Do(req)
+	if err != nil {
+		t.Fatalf("failed to add group template access: %v", err)
+	}
+	defer resp.Body.Close()
+
+	return resp.StatusCode
+}
+
+func GetGroupTemplateAccess(t *testing.T, auth AuthContext, groupID uuid.UUID) ([]uuid.UUID, int) {
+	t.Helper()
+
+	req, _ := http.NewRequest(http.MethodGet, fmt.Sprintf("%s/api/v1/groups/%s/templates", BaseURL, groupID), nil)
+	addAuth(t, req, auth)
+
+	resp, err := HTTPClient.Do(req)
+	if err != nil {
+		t.Fatalf("failed to get group template access: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusOK {
+		var templateIDs []uuid.UUID
+		if err := json.NewDecoder(resp.Body).Decode(&templateIDs); err != nil {
+			t.Fatalf("failed to decode template access response: %v", err)
+		}
+		return templateIDs, resp.StatusCode
+	}
+
+	return nil, resp.StatusCode
+}
+
+func RemoveGroupTemplateAccess(t *testing.T, auth AuthContext, groupID, templateID uuid.UUID) int {
+	t.Helper()
+
+	req, _ := http.NewRequest(http.MethodDelete, fmt.Sprintf("%s/api/v1/groups/%s/templates/%s", BaseURL, groupID, templateID), nil)
+	addAuth(t, req, auth)
+
+	resp, err := HTTPClient.Do(req)
+	if err != nil {
+		t.Fatalf("failed to remove group template access: %v", err)
+	}
+	defer resp.Body.Close()
+
+	return resp.StatusCode
+}
+
+func TearDownGroups(t *testing.T, workspaceID uuid.UUID) {
+	t.Helper()
+	DbConnection.Exec("DELETE FROM groups WHERE workspace_id = ?", workspaceID)
+}
+
 func AdminDeleteUser(t *testing.T, auth AuthContext, userID uuid.UUID) int {
 	t.Helper()
 
