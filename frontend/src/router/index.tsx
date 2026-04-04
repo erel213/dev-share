@@ -2,7 +2,6 @@ import { createBrowserRouter } from 'react-router-dom'
 import HomePage from '@/pages/HomePage'
 import SetupPage from '@/pages/SetupPage'
 import LoginPage from '@/pages/LoginPage'
-import WorkspacesPage from '@/pages/WorkspacesPage'
 import TemplatesPage from '@/pages/TemplatesPage'
 import TemplateBrowserPage from '@/pages/TemplateBrowserPage'
 import UsersPage from '@/pages/UsersPage'
@@ -29,11 +28,7 @@ export const router = createBrowserRouter([
             path: '/',
             element: <HomePage />,
           },
-          {
-            path: '/workspaces',
-            element: <WorkspacesPage />,
-          },
-          {
+{
             path: '/templates',
             element: <TemplatesPage />,
           },
