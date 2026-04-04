@@ -36,6 +36,12 @@ test-template: ## Run template integration tests only
 test-template-v: ## Run template integration tests with verbose output
 	@./scripts/run-integration-tests.sh -v template
 
+test-group: ## Run group integration tests only
+	@./scripts/run-integration-tests.sh group
+
+test-group-v: ## Run group integration tests with verbose output
+	@./scripts/run-integration-tests.sh -v group
+
 test-unit: ## Run unit tests
 	@go test ./internal/... ./pkg/... -v
 

@@ -285,6 +285,132 @@ test.describe.serial("Dev-Share E2E", () => {
     await expect(page).toHaveURL("/", { timeout: 10000 });
   });
 
+  // ── 5. Group Management ─────────────────────────────────────────────
+
+  const GROUP = {
+    name: "Engineering",
+    description: "Backend and frontend engineers",
+  };
+
+  test("group management — admin can navigate to groups page", async ({
+    page,
+  }) => {
+    await page.goto("/login");
+    await page.locator("#email").fill(ADMIN.email);
+    await page.locator("#password").fill(ADMIN.password);
+    await page.getByRole("button", { name: "Log in" }).click();
+    await expect(page).toHaveURL("/", { timeout: 10000 });
+
+    // Verify Groups link in sidebar
+    await expect(page.getByRole("link", { name: "Groups" })).toBeVisible();
+
+    await page.getByRole("link", { name: "Groups" }).click();
+    await expect(page).toHaveURL("/groups");
+    await expect(
+      page.getByRole("heading", { name: "Groups" })
+    ).toBeVisible();
+  });
+
+  test("group management — admin can create a group", async ({ page }) => {
+    await page.goto("/login");
+    await page.locator("#email").fill(ADMIN.email);
+    await page.locator("#password").fill(ADMIN.password);
+    await page.getByRole("button", { name: "Log in" }).click();
+    await expect(page).toHaveURL("/", { timeout: 10000 });
+
+    await page.goto("/groups");
+    await expect(
+      page.getByRole("heading", { name: "Groups" })
+    ).toBeVisible();
+
+    // Click Create Group button
+    await page.getByRole("button", { name: "Create Group" }).click();
+
+    // Fill in the form
+    await page.locator("#group-name").fill(GROUP.name);
+    await page.locator("#group-description").fill(GROUP.description);
+
+    // Submit
+    await page.getByRole("button", { name: "Create" }).click();
+
+    // Verify group appears in the table
+    await expect(page.getByText(GROUP.name)).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText(GROUP.description)).toBeVisible();
+    await expect(page.getByText("Custom")).toBeVisible();
+  });
+
+  test("group management — created group appears in table after reload", async ({
+    page,
+  }) => {
+    await page.goto("/login");
+    await page.locator("#email").fill(ADMIN.email);
+    await page.locator("#password").fill(ADMIN.password);
+    await page.getByRole("button", { name: "Log in" }).click();
+    await expect(page).toHaveURL("/", { timeout: 10000 });
+
+    await page.goto("/groups");
+
+    // Verify group persisted
+    await expect(page.getByText(GROUP.name)).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText(GROUP.description)).toBeVisible();
+  });
+
+  test("group management — admin can edit a group", async ({ page }) => {
+    await page.goto("/login");
+    await page.locator("#email").fill(ADMIN.email);
+    await page.locator("#password").fill(ADMIN.password);
+    await page.getByRole("button", { name: "Log in" }).click();
+    await expect(page).toHaveURL("/", { timeout: 10000 });
+
+    await page.goto("/groups");
+    await expect(page.getByText(GROUP.name)).toBeVisible({ timeout: 10000 });
+
+    // Click edit on the group row
+    const groupRow = page.getByRole("row").filter({ hasText: GROUP.name });
+    await groupRow.getByTitle("Edit group").click();
+
+    // Toggle access all templates
+    await page.locator("#edit-access-all").click();
+
+    // Save
+    await page.getByRole("button", { name: "Save" }).click();
+
+    // Verify badge changed to "All Templates"
+    await expect(page.getByText("All Templates")).toBeVisible({
+      timeout: 10000,
+    });
+  });
+
+  test("group management — admin can delete a group", async ({ page }) => {
+    await page.goto("/login");
+    await page.locator("#email").fill(ADMIN.email);
+    await page.locator("#password").fill(ADMIN.password);
+    await page.getByRole("button", { name: "Log in" }).click();
+    await expect(page).toHaveURL("/", { timeout: 10000 });
+
+    await page.goto("/groups");
+    await expect(page.getByText(GROUP.name)).toBeVisible({ timeout: 10000 });
+
+    // Click delete on the group row
+    const groupRow = page.getByRole("row").filter({ hasText: GROUP.name });
+    await groupRow.getByTitle("Delete group").click();
+
+    // Confirm deletion
+    await page.getByRole("button", { name: "Delete" }).click();
+
+    // Wait for dialog to close
+    await expect(page.getByRole("alertdialog")).not.toBeVisible({
+      timeout: 10000,
+    });
+
+    // Verify group is removed
+    await expect(
+      page.getByRole("row").filter({ hasText: GROUP.name })
+    ).not.toBeVisible({ timeout: 10000 });
+  });
+
+  // ── 6. User Cleanup ────────────────────────────────────────────────
+
   test("user management — admin can delete a user", async ({ page }) => {
     // Login as admin
     await page.goto("/login");

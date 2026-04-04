@@ -59,6 +59,7 @@ func (f *ServiceFactory) NewTemplateService() TemplateService {
 		f.repoFactory.CreateWorkspaceRepository(uow),
 		*f.validator,
 		f.fileStorage,
+		f.repoFactory.CreateGroupRepository(uow),
 	)
 }
 
@@ -75,6 +76,7 @@ func (f *ServiceFactory) NewEnvironmentService() EnvironmentService {
 		f.repoFactory.CreateEnvironmentRepository(uow),
 		f.repoFactory.CreateTemplateRepository(uow),
 		f.repoFactory.CreateUserRepository(uow),
+		f.repoFactory.CreateGroupRepository(uow),
 		f.validator,
 		f.executionStorage,
 		f.tfExecutor,
@@ -102,6 +104,11 @@ func (f *ServiceFactory) NewTemplateVariableService() TemplateVariableService {
 		f.tfParser,
 		uow,
 	)
+}
+
+func (f *ServiceFactory) NewGroupService() GroupService {
+	uow := f.uowFactory.Create()
+	return NewGroupService(f.repoFactory.CreateGroupRepository(uow), f.validator)
 }
 
 func (f *ServiceFactory) NewEnvironmentVariableValueService() EnvironmentVariableValueService {

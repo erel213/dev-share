@@ -153,6 +153,9 @@ func TestMain(m *testing.M) {
 	adminProtected := protected.Group("", middleware.RequireRole(domain.RoleAdmin))
 	adminHandler.RegisterAdminRoutes(adminProtected)
 
+	groupHandler := handlers.NewGroupHandler(serviceFactory.NewGroupService)
+	groupHandler.RegisterRoutes(adminProtected)
+
 	// Listen on a random available port.
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {

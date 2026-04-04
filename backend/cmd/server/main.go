@@ -109,6 +109,7 @@ func main() {
 	templateVariableHandler := handlers.NewTemplateVariableHandler(serviceFactory.NewTemplateVariableService)
 	envVarValueHandler := handlers.NewEnvironmentVariableValueHandler(serviceFactory.NewEnvironmentVariableValueService)
 	environmentHandler := handlers.NewEnvironmentHandler(serviceFactory.NewEnvironmentService)
+	groupHandler := handlers.NewGroupHandler(serviceFactory.NewGroupService)
 	adminHandler := handlers.NewAdminHandler(serviceFactory.NewAdminService, jwtService, cfg.AdminInitToken)
 
 	app := fiber.New(fiber.Config{
@@ -167,6 +168,7 @@ func main() {
 	// Admin-level routes — only admin can access (all methods including GET)
 	adminProtected := protected.Group("", middleware.RequireRole(domain.RoleAdmin))
 	adminHandler.RegisterAdminRoutes(adminProtected)
+	groupHandler.RegisterRoutes(adminProtected)
 
 	// Environment reaper — auto-destroys environments with expired TTLs.
 	reaper := application.NewEnvironmentReaper(uowFactory, repoFactory, executionStorage, tfExecutor, encryptor, validator)

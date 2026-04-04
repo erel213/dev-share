@@ -35,6 +35,7 @@ func setupWorkspaceForTemplates(t *testing.T) (AuthContext, *WorkspaceResponse) 
 	bootstrapAuth := AuthContext{
 		UserID:      uuid.New(),
 		UserName:    "Template Test User",
+		Role:        "admin",
 		WorkspaceID: uuid.New(),
 	}
 	workspace, status := CreateWorkspace(t, bootstrapAuth, "Template WS "+uuid.New().String()[:8], "Workspace for template tests", uuid.New())
@@ -45,6 +46,7 @@ func setupWorkspaceForTemplates(t *testing.T) (AuthContext, *WorkspaceResponse) 
 	auth := AuthContext{
 		UserID:      bootstrapAuth.UserID,
 		UserName:    bootstrapAuth.UserName,
+		Role:        "admin",
 		WorkspaceID: workspace.ID,
 	}
 	return auth, workspace
