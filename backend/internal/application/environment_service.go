@@ -22,6 +22,7 @@ type EnvironmentService struct {
 	envRepo          repository.EnvironmentRepository
 	templateRepo     repository.TemplateRepository
 	userRepo         repository.UserRepository
+	groupRepo        repository.GroupRepository
 	validator        *validation.Service
 	executionStorage storage.ExecutionStorage
 	tfExecutor       *terraform.Executor
@@ -33,6 +34,7 @@ func NewEnvironmentService(
 	envRepo repository.EnvironmentRepository,
 	templateRepo repository.TemplateRepository,
 	userRepo repository.UserRepository,
+	groupRepo repository.GroupRepository,
 	validator *validation.Service,
 	executionStorage storage.ExecutionStorage,
 	tfExecutor *terraform.Executor,
@@ -46,6 +48,7 @@ func NewEnvironmentService(
 		executionStorage: executionStorage,
 		tfExecutor:       tfExecutor,
 		userRepo:         userRepo,
+		groupRepo:        groupRepo,
 		envVarService:    envVarService,
 		teardownRepo:     teardownRepo,
 	}
@@ -94,6 +97,17 @@ func (s EnvironmentService) CreateEnvironment(ctx context.Context, request contr
 	}
 
 	createdBy, _ := uuid.Parse(claims.ID)
+
+	// Group-based template access check (admins bypass)
+	isAdmin := domain.Role(claims.Role) == domain.RoleAdmin
+	hasAccess, accessErr := CanAccessTemplate(ctx, s.groupRepo, createdBy, workspaceID, request.TemplateID, isAdmin)
+	if accessErr != nil {
+		return nil, accessErr
+	}
+	if !hasAccess {
+		return nil, apperrors.ReturnForbidden("you do not have access to this template")
+	}
+
 	env := domain.NewEnvironment(request.Name, request.Description, createdBy, workspaceID, request.TemplateID, request.TTLSeconds)
 	//Verify user didn't created env from the template
 	userCreatedEnv, repoErr := s.envRepo.GetByCreatedBy(ctx, createdBy)

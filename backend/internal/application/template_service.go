@@ -29,14 +29,16 @@ var allowedExtensions = map[string]bool{
 type TemplateService struct {
 	templateRepository  repository.TemplateRepository
 	workspaceRepository repository.WorkspaceRepository
+	groupRepo           repository.GroupRepository
 	validator           validation.Service
 	fileStorage         storage.FileStorage
 }
 
-func NewTemplateService(templateRepo repository.TemplateRepository, workspaceRepository repository.WorkspaceRepository, validator validation.Service, fileStorage storage.FileStorage) TemplateService {
+func NewTemplateService(templateRepo repository.TemplateRepository, workspaceRepository repository.WorkspaceRepository, validator validation.Service, fileStorage storage.FileStorage, groupRepo repository.GroupRepository) TemplateService {
 	return TemplateService{
 		templateRepository:  templateRepo,
 		workspaceRepository: workspaceRepository,
+		groupRepo:           groupRepo,
 		validator:           validator,
 		fileStorage:         fileStorage,
 	}
@@ -131,7 +133,9 @@ func (s TemplateService) GetTemplatesByWorkspace(ctx context.Context, request co
 		return nil, err
 	}
 
-	return s.templateRepository.GetByWorkspaceID(ctx, request.WorkspaceID)
+	userID, _ := uuid.Parse(claims.ID)
+	isAdmin := domain.Role(claims.Role) == domain.RoleAdmin
+	return GetAccessibleTemplates(ctx, s.groupRepo, s.templateRepository, userID, request.WorkspaceID, isAdmin)
 }
 
 // UpdateTemplate updates an existing template and optionally adds files
@@ -224,7 +228,8 @@ func (s TemplateService) DeleteTemplate(ctx context.Context, request contracts.D
 	return nil
 }
 
-// ListTemplates retrieves a paginated list of templates for the user's workspace
+// ListTemplates retrieves a paginated list of templates for the user's workspace,
+// filtered by group-based access (admins see all templates).
 func (s TemplateService) ListTemplates(ctx context.Context, request contracts.ListTemplates) ([]*domain.Template, *errors.Error) {
 	claims, ok := jwt.ClaimsFromContext(ctx)
 	if !ok {
@@ -235,14 +240,14 @@ func (s TemplateService) ListTemplates(ctx context.Context, request contracts.Li
 		return nil, err
 	}
 
-	// Parse workspace ID from claims
 	workspaceID, err := parseWorkspaceID(claims.WorkspaceID)
 	if err != nil {
 		return nil, apperrors.ReturnInternalError("invalid workspace ID in token")
 	}
 
-	// List templates filtered by the user's workspace
-	return s.templateRepository.GetByWorkspaceID(ctx, workspaceID)
+	userID, _ := uuid.Parse(claims.ID)
+	isAdmin := domain.Role(claims.Role) == domain.RoleAdmin
+	return GetAccessibleTemplates(ctx, s.groupRepo, s.templateRepository, userID, workspaceID, isAdmin)
 }
 
 // ListTemplateFiles returns the list of files for a given template
