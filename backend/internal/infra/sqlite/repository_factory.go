@@ -38,3 +38,7 @@ func (f *repositoryFactory) CreateEnvironmentVariableValueRepository(uow apphand
 func (f *repositoryFactory) CreateTeardownQueueRepository(uow apphandlers.UnitOfWork) repository.TeardownQueueRepository {
 	return newTeardownQueueRepository(uow.(*UnitOfWork))
 }
+
+func (f *repositoryFactory) CreateGroupRepository(uow apphandlers.UnitOfWork) repository.GroupRepository {
+	return newGroupRepository(uow.(*UnitOfWork))
+}

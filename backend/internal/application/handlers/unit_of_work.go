@@ -22,5 +22,6 @@ type (
 		CreateTemplateVariableRepository(uow UnitOfWork) repository.TemplateVariableRepository
 		CreateEnvironmentVariableValueRepository(uow UnitOfWork) repository.EnvironmentVariableValueRepository
 		CreateTeardownQueueRepository(uow UnitOfWork) repository.TeardownQueueRepository
+		CreateGroupRepository(uow UnitOfWork) repository.GroupRepository
 	}
 )
