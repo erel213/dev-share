@@ -124,6 +124,28 @@ export interface SetVariableValueEntry {
   value: string
 }
 
+export interface Group {
+  id: string
+  name: string
+  description: string
+  workspace_id: string
+  access_all_templates: boolean
+  created_at: string
+  updated_at: string
+}
+
+export interface CreateGroupRequest {
+  name: string
+  description?: string
+  access_all_templates?: boolean
+}
+
+export interface UpdateGroupRequest {
+  name?: string
+  description?: string
+  access_all_templates?: boolean
+}
+
 export interface AdminUser {
   id: string
   name: string
