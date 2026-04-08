@@ -278,28 +278,44 @@ func (s EnvironmentService) DestroyEnvironment(ctx context.Context, request cont
 	return s.startOperation(ctx, request.ID, domain.EnvironmentStatusDestroying)
 }
 
-// DeleteEnvironment deletes the environment from the database and cleans up
-// the execution directory. Rejects if an operation is in progress.
+// DeleteEnvironment runs terraform destroy on the environment, then deletes
+// it from the database and cleans up the execution directory.
 func (s EnvironmentService) DeleteEnvironment(ctx context.Context, request contracts.DeleteEnvironment) *errors.Error {
 	env, err := s.verifyEnvironmentOwnership(ctx, request.ID)
 	if err != nil {
 		return err
 	}
 
-	if err := env.CanStartOperation(); err != nil {
-		return apperrors.ReturnConflict(err.Error())
+	// Atomic status acquisition — rejects if already in a blocking state.
+	env, acquireErr := s.envRepo.AcquireOperation(ctx, env.ID, domain.EnvironmentStatusDestroying)
+	if acquireErr != nil {
+		return apperrors.ReturnConflict(acquireErr.Error())
 	}
 
-	if repoErr := s.envRepo.Delete(ctx, request.ID); repoErr != nil {
-		return apperrors.ReturnInternalError("failed to delete environment")
+	go s.executeDeleteWithDestroy(env)
+
+	return nil
+}
+
+func (s EnvironmentService) executeDeleteWithDestroy(env *domain.Environment) {
+	ctx := context.Background()
+
+	if err := s.writeVarsFile(ctx, env); err != nil {
+		slog.Error("failed to write tfvars before delete-destroy", "env_id", env.ID, "error", err)
 	}
 
-	// Best-effort cleanup of execution directory.
+	if _, tfErr := s.tfExecutor.Destroy(ctx, env.ExecutionPath()); tfErr != nil {
+		slog.Error("terraform destroy failed during delete", "env_id", env.ID, "error", tfErr)
+	}
+
+	if repoErr := s.envRepo.Delete(ctx, env.ID); repoErr != nil {
+		slog.Error("failed to delete environment after destroy", "env_id", env.ID, "error", repoErr)
+		return
+	}
+
 	if cleanupErr := s.executionStorage.DeleteDir(env.ExecutionPath()); cleanupErr != nil {
 		slog.Error("failed to cleanup execution dir after delete", "path", env.ExecutionPath(), "error", cleanupErr)
 	}
-
-	return nil
 }
 
 // startOperation acquires the atomic lock and dispatches the terraform command
