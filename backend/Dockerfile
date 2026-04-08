@@ -23,8 +23,14 @@ RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o migrate ./cmd/mig
 # Final stage
 FROM alpine:latest
 
-# Install ca-certificates for HTTPS requests
-RUN apk --no-cache add ca-certificates curl sqlite
+# Install ca-certificates for HTTPS requests and runtime dependencies
+RUN apk --no-cache add ca-certificates curl sqlite unzip
+# Install Terraform from HashiCorp releases
+RUN ARCH=$(uname -m) && \
+    if [ "$ARCH" = "x86_64" ]; then ARCH="amd64"; elif [ "$ARCH" = "aarch64" ]; then ARCH="arm64"; fi && \
+    curl -fsSL "https://releases.hashicorp.com/terraform/1.12.0/terraform_1.12.0_linux_${ARCH}.zip" -o /tmp/terraform.zip && \
+    unzip /tmp/terraform.zip -d /usr/local/bin/ && \
+    rm /tmp/terraform.zip
 RUN echo 'alias sqlite3="sqlite3 -cmd \".headers on\" -cmd \".mode table\""' >> /root/.profile
 
 WORKDIR /root/
