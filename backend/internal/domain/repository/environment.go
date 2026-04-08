@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"backend/internal/domain"
+	"backend/pkg/contracts"
 	"backend/pkg/errors"
 
 	"github.com/google/uuid"
@@ -23,4 +24,8 @@ type EnvironmentRepository interface {
 	// only if the current status is not one of the blocking statuses.
 	// Returns the updated environment, or an error if the operation cannot proceed.
 	AcquireOperation(ctx context.Context, id uuid.UUID, newStatus domain.EnvironmentStatus) (*domain.Environment, *errors.Error)
+
+	// ListFiltered returns environments with enriched fields (created_by_name, template_name)
+	// using JOINs, filtered by the provided options.
+	ListFiltered(ctx context.Context, opts EnvironmentListOptions) ([]*contracts.EnvironmentResponse, *errors.Error)
 }
