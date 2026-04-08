@@ -31,4 +31,8 @@ type GroupRepository interface {
 	// Access query — returns the set of template IDs accessible to a user via their groups.
 	// If hasAccessAll is true, the user belongs to a group with access_all_templates=true.
 	GetAccessibleTemplateIDs(ctx context.Context, userID uuid.UUID, workspaceID uuid.UUID) (templateIDs []uuid.UUID, hasAccessAll bool, err *errors.Error)
+
+	// GetCoMemberUserIDs returns the distinct user IDs of all users who share
+	// at least one group with the given user in the specified workspace.
+	GetCoMemberUserIDs(ctx context.Context, userID uuid.UUID, workspaceID uuid.UUID) ([]uuid.UUID, *errors.Error)
 }

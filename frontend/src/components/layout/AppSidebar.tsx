@@ -1,4 +1,4 @@
-import { Home, LayoutTemplate, Users, Shield, LogOut, ChevronsUpDown } from 'lucide-react'
+import { Home, LayoutTemplate, FolderOpen, Server, Users, Shield, LogOut, ChevronsUpDown } from 'lucide-react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import {
   Sidebar,
@@ -23,6 +23,7 @@ import { useAuth } from '@/hooks/useAuth'
 
 const navItems = [
   { title: 'Dashboard', url: '/', icon: Home },
+  { title: 'Environments', url: '/environments', icon: Server },
   { title: 'Templates', url: '/templates', icon: LayoutTemplate },
 ]
 

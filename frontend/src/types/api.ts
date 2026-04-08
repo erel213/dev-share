@@ -23,11 +23,46 @@ export interface Workspace {
 export interface Environment {
   id: string
   name: string
-  workspaceId: string
-  status: 'pending' | 'running' | 'stopped' | 'failed'
+  description: string
+  created_by: string
+  created_by_name: string
+  workspace_id: string
+  template_id: string
+  template_name: string
+  status:
+    | 'pending'
+    | 'initialized'
+    | 'planning'
+    | 'applying'
+    | 'ready'
+    | 'destroying'
+    | 'destroyed'
+    | 'error'
+  last_applied_at?: string
+  last_operation?: string
+  last_error?: string
   ttl_seconds?: number
-  createdAt: string
-  updatedAt: string
+  created_at: string
+  updated_at: string
+}
+
+export interface CreateEnvironmentRequest {
+  name: string
+  description?: string
+  template_id: string
+  ttl_seconds?: number
+}
+
+export interface ListEnvironmentsParams {
+  scope?: 'user' | 'all'
+  status?: string
+  template_id?: string
+  created_by?: string
+  search?: string
+  sort_by?: string
+  order?: 'ASC' | 'DESC'
+  limit?: number
+  offset?: number
 }
 
 export interface AdminInitRequest {

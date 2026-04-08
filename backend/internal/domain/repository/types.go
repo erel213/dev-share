@@ -3,6 +3,8 @@ package repository
 import (
 	"backend/internal/domain/errors"
 	pkgerrors "backend/pkg/errors"
+
+	"github.com/google/uuid"
 )
 
 type ListOptions struct {
@@ -36,4 +38,17 @@ func (o *ListOptions) ApplyDefaults() {
 	if o.SortBy == "" {
 		o.SortBy = "created_at"
 	}
+}
+
+// EnvironmentListOptions holds filters for the enriched environment listing.
+type EnvironmentListOptions struct {
+	WorkspaceID uuid.UUID
+	CreatorIDs  []uuid.UUID // scope=user: self + co-members; scope=all: empty (no filter)
+	Statuses    []string
+	TemplateID  *uuid.UUID
+	Search      string
+	SortBy      string
+	Order       string
+	Limit       int
+	Offset      int
 }

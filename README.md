@@ -79,54 +79,85 @@ To wipe the database and start fresh:
 
 dev-share does **not** manage cloud credentials directly. It delegates authentication entirely to the underlying IaC platform (e.g., Terraform), which uses the cloud SDK's built-in credential chain.
 
-**Your responsibility** is to ensure the host running dev-share has valid credentials configured for the target cloud provider.
-
-#### AWS
-
-Any method supported by the [AWS credential chain](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-files.html):
+Since the backend runs inside a Docker container, cloud credentials must be explicitly passed in. The recommended approach is to create a `docker-compose.override.yml` (auto-merged by Docker Compose, gitignored).
 
 ```sh
-# Option 1: Environment variables
-export AWS_ACCESS_KEY_ID=...
-export AWS_SECRET_ACCESS_KEY=...
-
-# Option 2: Shared credentials file (~/.aws/credentials)
-aws configure
-
-# Option 3: IAM instance profile (on EC2/ECS — automatic, no setup needed)
+cp docker-compose.override.example.yml docker-compose.override.yml
+# Edit the file — uncomment the sections for your provider and method
 ```
 
-#### GCP
+#### Quick Reference
 
-Any method supported by [Application Default Credentials](https://cloud.google.com/docs/authentication/application-default-credentials):
+| Scenario | Method | What to configure |
+|---|---|---|
+| Local dev with `aws configure` / `gcloud auth` / `az login` | Volume mount | Mount `~/.aws`, `~/.config/gcloud`, or `~/.azure` read-only |
+| Explicit access keys or service principal | Env vars | Set in `.env`, pass through in override |
+| CI/CD pipeline | Env vars | Pipeline injects vars, listed in override |
+| EC2 / GCE / Azure VM with instance role | Metadata | `network_mode: host` in override |
+| GCP service account JSON | Volume mount + env var | Mount JSON file, set `GOOGLE_APPLICATION_CREDENTIALS` |
 
-```sh
-# Option 1: User credentials (local dev)
-gcloud auth application-default login
+#### Option A: Credential File Mounts
 
-# Option 2: Service account key
-export GOOGLE_APPLICATION_CREDENTIALS=/path/to/key.json
+Mount host credential directories read-only into the container. This works if you authenticate via CLI tools (`aws configure`, `gcloud auth application-default login`, `az login`).
 
-# Option 3: Attached service account (on GCE/GKE — automatic, no setup needed)
+```yaml
+# docker-compose.override.yml
+services:
+  backend:
+    volumes:
+      # AWS
+      - ${HOME}/.aws:/root/.aws:ro
+      # GCP
+      - ${HOME}/.config/gcloud:/root/.config/gcloud:ro
+      # Azure
+      - ${HOME}/.azure:/root/.azure:ro
 ```
 
-#### Azure
+> All mounts use `:ro` (read-only) — the container cannot modify host credentials.
 
-Any method supported by [DefaultAzureCredential](https://learn.microsoft.com/en-us/azure/developer/go/azure-sdk-authentication):
+#### Option B: Environment Variables
 
-```sh
-# Option 1: Azure CLI (local dev)
-az login
+Pass cloud credentials as environment variables. Set them on the host or in `.env`, then list them (without `=value`) in the override so Docker Compose passes the host values through.
 
-# Option 2: Service principal
-export AZURE_CLIENT_ID=...
-export AZURE_TENANT_ID=...
-export AZURE_CLIENT_SECRET=...
-
-# Option 3: Managed identity (on Azure VMs/App Service — automatic, no setup needed)
+```yaml
+# docker-compose.override.yml
+services:
+  backend:
+    environment:
+      # AWS
+      - AWS_ACCESS_KEY_ID
+      - AWS_SECRET_ACCESS_KEY
+      - AWS_SESSION_TOKEN
+      - AWS_DEFAULT_REGION
+      # GCP
+      - GOOGLE_APPLICATION_CREDENTIALS
+      - GOOGLE_PROJECT
+      # Azure (Terraform AzureRM provider uses ARM_ prefix)
+      - ARM_CLIENT_ID
+      - ARM_CLIENT_SECRET
+      - ARM_TENANT_ID
+      - ARM_SUBSCRIPTION_ID
 ```
 
-> **Tip:** For production and CI/CD, prefer short-lived credentials via OIDC workload identity federation or instance-attached roles over long-lived secrets.
+#### Option C: Instance Identity (Cloud-Hosted)
+
+On EC2 (IAM role), GCE (attached service account), or Azure VM (managed identity), Terraform gets credentials automatically from the metadata endpoint. Enable host networking so the container can reach it:
+
+```yaml
+# docker-compose.override.yml
+services:
+  backend:
+    network_mode: host
+```
+
+> **Warning:** `network_mode: host` removes container network isolation. Only use this in trusted environments.
+
+#### Security Notes
+
+- **Never bake credentials into the Docker image.** Use mounts or env vars at runtime.
+- **`docker-compose.override.yml` is gitignored** to prevent accidental credential commits.
+- **Prefer short-lived credentials** — AWS STS / SSO sessions, GCP OIDC workload identity, Azure federated credentials — over long-lived access keys.
+- **Principle of least privilege** — grant only the IAM permissions Terraform needs, not admin access.
 
 ### Stopping
 

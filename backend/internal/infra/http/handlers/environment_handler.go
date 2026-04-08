@@ -20,7 +20,7 @@ func NewEnvironmentHandler(serviceFactory func() application.EnvironmentService)
 func (h *EnvironmentHandler) RegisterRoutes(router fiber.Router) {
 	router.Post("/environments", h.CreateEnvironment)
 	router.Get("/environments/:id", h.GetEnvironment)
-	router.Get("/environments", h.GetEnvironmentsByWorkspace)
+	router.Get("/environments", h.ListEnvironments)
 	router.Post("/environments/:id/plan", h.PlanEnvironment)
 	router.Post("/environments/:id/apply", h.ApplyEnvironment)
 	router.Post("/environments/:id/destroy", h.DestroyEnvironment)
@@ -57,9 +57,14 @@ func (h *EnvironmentHandler) GetEnvironment(c *fiber.Ctx) error {
 	return c.JSON(env)
 }
 
-func (h *EnvironmentHandler) GetEnvironmentsByWorkspace(c *fiber.Ctx) error {
+func (h *EnvironmentHandler) ListEnvironments(c *fiber.Ctx) error {
+	var request contracts.ListEnvironments
+	if err := c.QueryParser(&request); err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "Invalid query parameters")
+	}
+
 	service := h.serviceFactory()
-	envs, serviceErr := service.GetEnvironmentsByWorkspace(middleware.ContextWithClaims(c))
+	envs, serviceErr := service.ListEnvironments(middleware.ContextWithClaims(c), request)
 	if serviceErr != nil {
 		return serviceErr
 	}

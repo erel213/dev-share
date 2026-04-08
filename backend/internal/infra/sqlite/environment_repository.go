@@ -9,6 +9,7 @@ import (
 	domainerrors "backend/internal/domain/errors"
 	"backend/internal/domain/repository"
 	infraerrors "backend/internal/infra/errors"
+	"backend/pkg/contracts"
 	pkgerrors "backend/pkg/errors"
 
 	sq "github.com/Masterminds/squirrel"
@@ -76,6 +77,66 @@ func scanEnvironment(scanner interface{ Scan(dest ...any) error }) (*domain.Envi
 	}
 
 	return &env, nil
+}
+
+// enrichedEnviormentColumns are the columns selected for the enriched environment listing.
+var enrichedEnviormentColumns = []string{
+	"e.id", "e.name", "e.created_at", "e.created_by", "e.description",
+	"e.workspace_id", "e.template_id", "e.status", "e.last_applied_at",
+	"e.last_operation", "e.last_error", "e.ttl_seconds", "e.updated_at",
+	"u.name",
+	"COALESCE(t.name, '')",
+}
+
+// scanEnrichedEnviormentResponse scans a row into a contracts.EnvironmentResponse.
+func scanEnrichedEnviormentResponse(scanner interface{ Scan(dest ...any) error }) (*contracts.EnvironmentResponse, error) {
+	var resp contracts.EnvironmentResponse
+	var cat, uat, lat TimestampDest
+	var lastOp, lastErr sql.NullString
+	var ttlSeconds sql.NullInt64
+	var status string
+
+	err := scanner.Scan(
+		&resp.ID,
+		&resp.Name,
+		&cat,
+		&resp.CreatedBy,
+		&resp.Description,
+		&resp.WorkspaceID,
+		&resp.TemplateID,
+		&status,
+		&lat,
+		&lastOp,
+		&lastErr,
+		&ttlSeconds,
+		&uat,
+		&resp.CreatedByName,
+		&resp.TemplateName,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	resp.CreatedAt = cat.Time()
+	resp.UpdatedAt = uat.Time()
+	resp.Status = status
+
+	if !lat.Time().IsZero() {
+		t := lat.Time()
+		resp.LastAppliedAt = &t
+	}
+	if lastOp.Valid {
+		resp.LastOperation = lastOp.String
+	}
+	if lastErr.Valid {
+		resp.LastError = lastErr.String
+	}
+	if ttlSeconds.Valid {
+		v := int(ttlSeconds.Int64)
+		resp.TTLSeconds = &v
+	}
+
+	return &resp, nil
 }
 
 func (r *environmentRepository) Create(ctx context.Context, env *domain.Environment) *pkgerrors.Error {
@@ -307,4 +368,68 @@ func (r *environmentRepository) AcquireOperation(ctx context.Context, id uuid.UU
 	}
 
 	return env, nil
+}
+
+func (r *environmentRepository) ListFiltered(ctx context.Context, opts repository.EnvironmentListOptions) ([]*contracts.EnvironmentResponse, *pkgerrors.Error) {
+	qb := builder.
+		Select(enrichedEnviormentColumns...).
+		From("environments e").
+		Join("users u ON e.created_by = u.id").
+		LeftJoin("templates t ON e.template_id = t.id").
+		Where(sq.Eq{"e.workspace_id": opts.WorkspaceID})
+
+	if len(opts.CreatorIDs) > 0 {
+		qb = qb.Where(sq.Eq{"e.created_by": opts.CreatorIDs})
+	}
+	if len(opts.Statuses) > 0 {
+		qb = qb.Where(sq.Eq{"e.status": opts.Statuses})
+	}
+	if opts.TemplateID != nil {
+		qb = qb.Where(sq.Eq{"e.template_id": *opts.TemplateID})
+	}
+	if opts.Search != "" {
+		qb = qb.Where(sq.Like{"e.name": "%" + opts.Search + "%"})
+	}
+
+	sortBy := opts.SortBy
+	if sortBy == "" {
+		sortBy = "created_at"
+	}
+	order := opts.Order
+	if order == "" {
+		order = "DESC"
+	}
+	qb = qb.OrderBy(fmt.Sprintf("e.%s %s", sortBy, order))
+
+	limit := opts.Limit
+	if limit <= 0 {
+		limit = 50
+	}
+	qb = qb.Limit(uint64(limit)).Offset(uint64(opts.Offset))
+
+	query, args, err := qb.ToSql()
+	if err != nil {
+		return nil, infraerrors.WrapSQLiteError(err, "list_filtered_environments")
+	}
+
+	rows, err := r.uow.Querier().QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, infraerrors.WrapSQLiteError(err, "list_filtered_environments")
+	}
+	defer rows.Close()
+
+	var results []*contracts.EnvironmentResponse
+	for rows.Next() {
+		resp, scanErr := scanEnrichedEnviormentResponse(rows)
+		if scanErr != nil {
+			return nil, infraerrors.WrapSQLiteError(scanErr, "scan_environment_response")
+		}
+		results = append(results, resp)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, infraerrors.WrapSQLiteError(err, "iterate_environment_responses")
+	}
+
+	return results, nil
 }

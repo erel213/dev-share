@@ -1,0 +1,67 @@
+# Docker Compose Override — Cloud Provider Credentials
+#
+# Copy this file to docker-compose.override.yml and uncomment the sections
+# you need. Docker Compose auto-merges the override with docker-compose.yml.
+#
+#   cp docker-compose.override.example.yml docker-compose.override.yml
+#
+# docker-compose.override.yml is gitignored to prevent accidental credential commits.
+
+services:
+  backend:
+
+    # =========================================================================
+    # OPTION A: Environment Variable Passthrough
+    # =========================================================================
+    # Listing a variable without "=value" passes the host's current value.
+    # Set these on the host (or in .env) before running docker compose up.
+
+    environment:
+
+      # --- AWS ---
+      # - AWS_ACCESS_KEY_ID
+      # - AWS_SECRET_ACCESS_KEY
+      # - AWS_SESSION_TOKEN          # For temporary credentials (STS, SSO)
+      # - AWS_DEFAULT_REGION
+
+      # --- GCP ---
+      # - GOOGLE_APPLICATION_CREDENTIALS   # Path inside container to SA key JSON
+      # - GOOGLE_PROJECT
+
+      # --- Azure (Terraform AzureRM provider uses ARM_ prefix) ---
+      # - ARM_CLIENT_ID
+      # - ARM_CLIENT_SECRET
+      # - ARM_TENANT_ID
+      # - ARM_SUBSCRIPTION_ID
+
+    # =========================================================================
+    # OPTION B: Credential File Mounts (read-only)
+    # =========================================================================
+    # Mount host credential directories into the container. Use this if you
+    # authenticate via CLI tools (aws configure, gcloud auth, az login).
+    # All mounts are :ro (read-only) — the container cannot modify host creds.
+
+    # volumes:
+      # --- AWS (~/.aws/credentials and ~/.aws/config) ---
+      # - ${HOME}/.aws:/root/.aws:ro
+
+      # --- GCP (Application Default Credentials) ---
+      # - ${HOME}/.config/gcloud:/root/.config/gcloud:ro
+
+      # --- Azure CLI cached credentials ---
+      # - ${HOME}/.azure:/root/.azure:ro
+
+      # --- GCP service account key (mount a single file) ---
+      # - /path/to/service-account.json:/root/.config/gcloud/sa-key.json:ro
+
+    # =========================================================================
+    # OPTION C: Instance Identity / Managed Identity (cloud-hosted)
+    # =========================================================================
+    # On EC2 (IAM role), GCE (service account), or Azure VM (managed identity),
+    # the metadata endpoint at 169.254.169.254 provides credentials automatically.
+    # Host networking gives the container direct access to this endpoint.
+    #
+    # WARNING: network_mode: host removes container network isolation.
+    # Only use this in trusted environments (e.g., private cloud VMs).
+
+    # network_mode: host

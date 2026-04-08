@@ -6,3 +6,4 @@ backend/migrate
 backend/server
 **.terraform*
 **.tfstate*
+docker-compose.override.yml

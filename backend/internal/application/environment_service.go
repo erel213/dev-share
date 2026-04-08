@@ -3,6 +3,7 @@ package application
 import (
 	"context"
 	"log/slog"
+	"strings"
 	"time"
 
 	apperrors "backend/internal/application/errors"
@@ -174,18 +175,80 @@ func (s EnvironmentService) GetEnvironment(ctx context.Context, request contract
 	return env, nil
 }
 
-// GetEnvironmentsByWorkspace retrieves all environments for a workspace.
-func (s EnvironmentService) GetEnvironmentsByWorkspace(ctx context.Context) ([]*domain.Environment, *errors.Error) {
+// ListEnvironments retrieves environments with scope-based filtering and enriched response.
+func (s EnvironmentService) ListEnvironments(ctx context.Context, request contracts.ListEnvironments) ([]*contracts.EnvironmentResponse, *errors.Error) {
 	claims, ok := jwt.ClaimsFromContext(ctx)
 	if !ok {
 		return nil, apperrors.ReturnUnauthorized("missing JWT claims in context")
 	}
 
-	workspaceID, _ := uuid.Parse(claims.WorkspaceID)
+	if err := s.validator.Validate(request); err != nil {
+		return nil, err
+	}
 
-	envs, repoErr := s.envRepo.GetByWorkspaceID(ctx, workspaceID)
+	workspaceID, _ := uuid.Parse(claims.WorkspaceID)
+	userID, _ := uuid.Parse(claims.ID)
+	isAdmin := domain.Role(claims.Role) == domain.RoleAdmin
+
+	scope := request.Scope
+	if scope == "" {
+		scope = "user"
+	}
+
+	if scope == "all" && !isAdmin {
+		return nil, apperrors.ReturnForbidden("only admins can list all environments")
+	}
+
+	opts := repository.EnvironmentListOptions{
+		WorkspaceID: workspaceID,
+		Search:      request.Search,
+		SortBy:      request.SortBy,
+		Order:       request.Order,
+		Limit:       request.Limit,
+		Offset:      request.Offset,
+	}
+
+	// Scope-based creator filtering.
+	if scope == "user" {
+		coMembers, coErr := s.groupRepo.GetCoMemberUserIDs(ctx, userID, workspaceID)
+		if coErr != nil {
+			return nil, apperrors.ReturnInternalError("failed to resolve group co-members")
+		}
+		opts.CreatorIDs = append(coMembers, userID)
+	}
+
+	// Parse comma-separated status filter.
+	if request.Status != "" {
+		opts.Statuses = splitAndTrim(request.Status)
+	}
+
+	// Parse template_id filter.
+	if request.TemplateID != "" {
+		tid, err := uuid.Parse(request.TemplateID)
+		if err != nil {
+			return nil, apperrors.ReturnBadRequest("invalid template_id")
+		}
+		opts.TemplateID = &tid
+	}
+
+	// Parse created_by filter.
+	if request.CreatedBy != "" {
+		cbID, err := uuid.Parse(request.CreatedBy)
+		if err != nil {
+			return nil, apperrors.ReturnBadRequest("invalid created_by")
+		}
+		// If scope=user, further restrict within the already-resolved set.
+		// If scope=all (admin), filter to this specific creator.
+		opts.CreatorIDs = []uuid.UUID{cbID}
+	}
+
+	envs, repoErr := s.envRepo.ListFiltered(ctx, opts)
 	if repoErr != nil {
 		return nil, apperrors.ReturnInternalError("failed to list environments")
+	}
+
+	if envs == nil {
+		envs = []*contracts.EnvironmentResponse{}
 	}
 
 	return envs, nil
@@ -215,28 +278,44 @@ func (s EnvironmentService) DestroyEnvironment(ctx context.Context, request cont
 	return s.startOperation(ctx, request.ID, domain.EnvironmentStatusDestroying)
 }
 
-// DeleteEnvironment deletes the environment from the database and cleans up
-// the execution directory. Rejects if an operation is in progress.
+// DeleteEnvironment runs terraform destroy on the environment, then deletes
+// it from the database and cleans up the execution directory.
 func (s EnvironmentService) DeleteEnvironment(ctx context.Context, request contracts.DeleteEnvironment) *errors.Error {
 	env, err := s.verifyEnvironmentOwnership(ctx, request.ID)
 	if err != nil {
 		return err
 	}
 
-	if err := env.CanStartOperation(); err != nil {
-		return apperrors.ReturnConflict(err.Error())
+	// Atomic status acquisition — rejects if already in a blocking state.
+	env, acquireErr := s.envRepo.AcquireOperation(ctx, env.ID, domain.EnvironmentStatusDestroying)
+	if acquireErr != nil {
+		return apperrors.ReturnConflict(acquireErr.Error())
 	}
 
-	if repoErr := s.envRepo.Delete(ctx, request.ID); repoErr != nil {
-		return apperrors.ReturnInternalError("failed to delete environment")
+	go s.executeDeleteWithDestroy(env)
+
+	return nil
+}
+
+func (s EnvironmentService) executeDeleteWithDestroy(env *domain.Environment) {
+	ctx := context.Background()
+
+	if err := s.writeVarsFile(ctx, env); err != nil {
+		slog.Error("failed to write tfvars before delete-destroy", "env_id", env.ID, "error", err)
 	}
 
-	// Best-effort cleanup of execution directory.
+	if _, tfErr := s.tfExecutor.Destroy(ctx, env.ExecutionPath()); tfErr != nil {
+		slog.Error("terraform destroy failed during delete", "env_id", env.ID, "error", tfErr)
+	}
+
+	if repoErr := s.envRepo.Delete(ctx, env.ID); repoErr != nil {
+		slog.Error("failed to delete environment after destroy", "env_id", env.ID, "error", repoErr)
+		return
+	}
+
 	if cleanupErr := s.executionStorage.DeleteDir(env.ExecutionPath()); cleanupErr != nil {
 		slog.Error("failed to cleanup execution dir after delete", "path", env.ExecutionPath(), "error", cleanupErr)
 	}
-
-	return nil
 }
 
 // startOperation acquires the atomic lock and dispatches the terraform command
@@ -375,4 +454,16 @@ func operationName(s domain.EnvironmentStatus) string {
 	default:
 		return string(s)
 	}
+}
+
+func splitAndTrim(s string) []string {
+	parts := strings.Split(s, ",")
+	var result []string
+	for _, p := range parts {
+		p = strings.TrimSpace(p)
+		if p != "" {
+			result = append(result, p)
+		}
+	}
+	return result
 }
