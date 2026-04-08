@@ -354,6 +354,19 @@ func (r *groupRepository) GetAccessibleTemplateIDs(ctx context.Context, userID u
 	return ids, false, nil
 }
 
+// --- Co-member query ---
+
+func (r *groupRepository) GetCoMemberUserIDs(ctx context.Context, userID uuid.UUID, workspaceID uuid.UUID) ([]uuid.UUID, *pkgerrors.Error) {
+	query := `
+		SELECT DISTINCT gm2.user_id
+		FROM group_memberships gm1
+		JOIN groups g ON gm1.group_id = g.id
+		JOIN group_memberships gm2 ON gm1.group_id = gm2.group_id
+		WHERE gm1.user_id = ? AND g.workspace_id = ? AND gm2.user_id != ?`
+
+	return r.queryUUIDs(ctx, query, []interface{}{userID, workspaceID, userID}, "get_co_member_user_ids")
+}
+
 // --- Helpers ---
 
 func (r *groupRepository) scanGroup(row *sql.Row) (*domain.Group, error) {
