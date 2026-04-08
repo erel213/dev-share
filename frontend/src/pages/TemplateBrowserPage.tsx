@@ -9,6 +9,7 @@ import {
   FileJson,
   Folder,
   FolderOpen,
+  Plus,
 } from 'lucide-react'
 import {
   getTemplate,
@@ -18,6 +19,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import TemplateVariablesSection from '@/components/template-variables/TemplateVariablesSection'
+import CreateEnvironmentDialog from '@/components/environments/CreateEnvironmentDialog'
 import type { ApiError, Template, TemplateFileInfo } from '@/types/api'
 
 interface TreeNode {
@@ -145,6 +147,7 @@ export default function TemplateBrowserPage() {
   const [error, setError] = useState('')
 
   const [activeTab, setActiveTab] = useState<'files' | 'variables'>('files')
+  const [createEnvOpen, setCreateEnvOpen] = useState(false)
 
   const [selectedFile, setSelectedFile] = useState<string | null>(null)
   const [fileContent, setFileContent] = useState<string>('')
@@ -212,19 +215,27 @@ export default function TemplateBrowserPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-4">
-        <Link to="/templates">
-          <Button variant="ghost" size="sm">
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Back
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <Link to="/templates">
+            <Button variant="ghost" size="sm">
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Back
+            </Button>
+          </Link>
+          {loading ? (
+            <Skeleton className="h-8 w-48" />
+          ) : (
+            <h1 className="text-2xl font-bold tracking-tight">
+              {template?.name}
+            </h1>
+          )}
+        </div>
+        {!loading && template && (
+          <Button onClick={() => setCreateEnvOpen(true)}>
+            <Plus className="mr-2 h-4 w-4" />
+            Create Environment
           </Button>
-        </Link>
-        {loading ? (
-          <Skeleton className="h-8 w-48" />
-        ) : (
-          <h1 className="text-2xl font-bold tracking-tight">
-            {template?.name}
-          </h1>
         )}
       </div>
 
@@ -318,6 +329,13 @@ export default function TemplateBrowserPage() {
       ) : (
         <TemplateVariablesSection templateId={id!} />
       )}
+
+      <CreateEnvironmentDialog
+        open={createEnvOpen}
+        onOpenChange={setCreateEnvOpen}
+        onSuccess={() => setCreateEnvOpen(false)}
+        preselectedTemplateId={id}
+      />
     </div>
   )
 }
