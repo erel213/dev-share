@@ -34,6 +34,7 @@ RUN ARCH=$(uname -m) && \
 RUN echo 'alias sqlite3="sqlite3 -cmd \".headers on\" -cmd \".mode table\""' >> /root/.profile
 
 WORKDIR /root/
+ENV HOME=/root
 
 # Copy binaries from builder
 COPY --from=builder /app/main .
