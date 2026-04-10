@@ -32,16 +32,22 @@ Once running, complete the onboarding flow to create your admin account and firs
 | `./setup.sh` | First-time setup — installs deps, builds, migrates, and starts everything |
 | `./restart.sh [target]` | Restart servers (`backend`, `frontend`, or `all` — default: `all`) |
 | `./clean_db.sh` | Delete all SQLite database files (`.db`, `.db-wal`, `.db-shm`) |
+| `./fast-deploy.sh` | Provision an EC2 instance and deploy the app (requires Terraform + AWS credentials) |
 
 ### Configuration (.env)
 
-| Variable           | Default                | Description                           |
-|--------------------|------------------------|---------------------------------------|
-| JWT_SECRET         | (auto-generated)       | JWT signing secret                    |
-| PORT               | 8080                   | Backend API port                      |
-| DB_FILE_PATH       | ./backend/devshare.db  | SQLite database file location         |
-| ADMIN_INIT_TOKEN   | (empty)                | Optional token to protect /admin/init |
-| VITE_API_BASE_URL  | http://localhost:8080   | Frontend API base URL                 |
+| Variable               | Default                | Description                                |
+|------------------------|------------------------|--------------------------------------------|
+| JWT_SECRET             | (auto-generated)       | JWT signing secret                         |
+| ENCRYPTION_KEY         | (auto-generated)       | AES encryption key for sensitive data      |
+| PORT                   | 8080                   | Backend API port                           |
+| DB_FILE_PATH           | ./backend/devshare.db  | SQLite database file location              |
+| ADMIN_INIT_TOKEN       | (empty)                | Optional token to protect /admin/init      |
+| TEMPLATE_STORAGE_PATH  | ./template_storage     | Directory for uploaded template files      |
+| ENV_EXECUTION_PATH     | ./env_executions       | Terraform working directory for executions |
+| TF_PLUGIN_CACHE_DIR    | (empty)                | Terraform plugin cache directory           |
+| VITE_API_BASE_URL      | http://localhost:8080   | Frontend API base URL (local dev only)    |
+| APP_PORT               | 3000                   | Frontend port in Docker                    |
 
 ### Development
 
@@ -74,6 +80,16 @@ To wipe the database and start fresh:
 ./clean_db.sh
 ./setup.sh
 ```
+
+### Docker Deployment
+
+To run the full stack in Docker:
+
+```sh
+docker compose up --build
+```
+
+This starts the backend (Go + SQLite) and frontend (Nginx) containers. The frontend is available at `http://localhost:3000` (or `APP_PORT`). See `docker-compose.override.example.yml` for cloud credential configuration.
 
 ### Cloud Provider Authentication
 
