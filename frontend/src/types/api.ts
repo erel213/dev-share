@@ -46,6 +46,14 @@ export interface Environment {
   updated_at: string
 }
 
+export interface TerraformOutput {
+  sensitive: boolean
+  type: unknown
+  value: unknown
+}
+
+export type EnvironmentOutputs = Record<string, TerraformOutput>
+
 export interface CreateEnvironmentRequest {
   name: string
   description?: string
