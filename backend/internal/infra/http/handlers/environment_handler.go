@@ -20,6 +20,7 @@ func NewEnvironmentHandler(serviceFactory func() application.EnvironmentService)
 func (h *EnvironmentHandler) RegisterRoutes(router fiber.Router) {
 	router.Post("/environments", h.CreateEnvironment)
 	router.Get("/environments/:id", h.GetEnvironment)
+	router.Get("/environments/:id/outputs", h.GetEnvironmentOutputs)
 	router.Get("/environments", h.ListEnvironments)
 	router.Post("/environments/:id/plan", h.PlanEnvironment)
 	router.Post("/environments/:id/apply", h.ApplyEnvironment)
@@ -115,6 +116,21 @@ func (h *EnvironmentHandler) DestroyEnvironment(c *fiber.Ctx) error {
 	}
 
 	return c.Status(fiber.StatusAccepted).JSON(env)
+}
+
+func (h *EnvironmentHandler) GetEnvironmentOutputs(c *fiber.Ctx) error {
+	id, err := uuid.Parse(c.Params("id"))
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "Invalid environment ID")
+	}
+
+	service := h.serviceFactory()
+	outputs, serviceErr := service.GetEnvironmentOutputs(middleware.ContextWithClaims(c), contracts.GetEnvironmentOutputs{ID: id})
+	if serviceErr != nil {
+		return serviceErr
+	}
+
+	return c.JSON(outputs)
 }
 
 func (h *EnvironmentHandler) DeleteEnvironment(c *fiber.Ctx) error {
