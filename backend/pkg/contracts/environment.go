@@ -46,6 +46,16 @@ type (
 		ID uuid.UUID `json:"id" validate:"required,uuid4"`
 	}
 
+	GetEnvironmentOutputs struct {
+		ID uuid.UUID `json:"id" validate:"required,uuid4"`
+	}
+
+	TerraformOutput struct {
+		Sensitive bool        `json:"sensitive"`
+		Type      interface{} `json:"type"`
+		Value     interface{} `json:"value"`
+	}
+
 	EnvironmentResponse struct {
 		ID            uuid.UUID  `json:"id"`
 		Name          string     `json:"name"`

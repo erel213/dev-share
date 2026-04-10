@@ -1,6 +1,7 @@
 import api from '@/lib/api'
 import type {
   Environment,
+  EnvironmentOutputs,
   CreateEnvironmentRequest,
   ListEnvironmentsParams,
 } from '@/types/api'
@@ -47,4 +48,13 @@ export async function destroyEnvironment(id: string): Promise<Environment> {
 
 export async function deleteEnvironment(id: string): Promise<void> {
   await api.delete(`/api/v1/environments/${id}`)
+}
+
+export async function getEnvironmentOutputs(
+  id: string,
+): Promise<EnvironmentOutputs> {
+  const { data } = await api.get<EnvironmentOutputs>(
+    `/api/v1/environments/${id}/outputs`,
+  )
+  return data
 }

@@ -2,6 +2,7 @@ package application
 
 import (
 	"context"
+	"encoding/json"
 	"log/slog"
 	"strings"
 	"time"
@@ -173,6 +174,44 @@ func (s EnvironmentService) GetEnvironment(ctx context.Context, request contract
 	}
 
 	return env, nil
+}
+
+// GetEnvironmentOutputs retrieves terraform outputs for an environment.
+func (s EnvironmentService) GetEnvironmentOutputs(ctx context.Context, request contracts.GetEnvironmentOutputs) (map[string]contracts.TerraformOutput, *errors.Error) {
+	if err := s.validator.Validate(request); err != nil {
+		return nil, err
+	}
+
+	env, err := s.verifyEnvironmentOwnership(ctx, request.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	if env.LastAppliedAt == nil {
+		return nil, apperrors.ReturnBadRequest("environment has not been applied yet — no outputs available")
+	}
+
+	result, tfErr := s.tfExecutor.Output(ctx, env.ExecutionPath())
+	if tfErr != nil {
+		if result != nil && (strings.Contains(result.Stderr, "No outputs") || result.Stdout == "{}\n" || result.Stdout == "{}") {
+			return map[string]contracts.TerraformOutput{}, nil
+		}
+		return nil, apperrors.ReturnInternalError("failed to retrieve terraform outputs")
+	}
+
+	var outputs map[string]contracts.TerraformOutput
+	if err := json.Unmarshal([]byte(result.Stdout), &outputs); err != nil {
+		return nil, apperrors.ReturnInternalError("failed to parse terraform outputs")
+	}
+
+	for key, out := range outputs {
+		if out.Sensitive {
+			out.Value = "(sensitive)"
+			outputs[key] = out
+		}
+	}
+
+	return outputs, nil
 }
 
 // ListEnvironments retrieves environments with scope-based filtering and enriched response.

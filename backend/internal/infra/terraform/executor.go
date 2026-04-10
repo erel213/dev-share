@@ -44,6 +44,10 @@ func (e *Executor) Destroy(ctx context.Context, executionPath string) (*Result, 
 	return e.run(ctx, executionPath, "destroy", "-auto-approve", "-input=false", "-no-color")
 }
 
+func (e *Executor) Output(ctx context.Context, executionPath string) (*Result, error) {
+	return e.run(ctx, executionPath, "output", "-json", "-no-color")
+}
+
 func (e *Executor) run(ctx context.Context, executionPath string, args ...string) (*Result, error) {
 	workDir := filepath.Join(e.basePath, executionPath)
 

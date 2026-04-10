@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useState } from 'react'
-import { Plus } from 'lucide-react'
+import { Fragment, useCallback, useEffect, useState } from 'react'
+import { ChevronRight, Plus } from 'lucide-react'
 import { listEnvironments } from '@/lib/environments-api'
 import { useAuth } from '@/hooks/useAuth'
 import { Button } from '@/components/ui/button'
@@ -15,6 +15,8 @@ import {
 import EnvironmentStatusBadge from '@/components/environments/EnvironmentStatusBadge'
 import EnvironmentActions from '@/components/environments/EnvironmentActions'
 import CreateEnvironmentDialog from '@/components/environments/CreateEnvironmentDialog'
+import EnvironmentOutputs from '@/components/environments/EnvironmentOutputs'
+import { cn } from '@/lib/utils'
 import type { ApiError, Environment } from '@/types/api'
 
 function formatDate(iso: string): string {
@@ -30,6 +32,7 @@ export default function EnvironmentsPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [createOpen, setCreateOpen] = useState(false)
+  const [expandedId, setExpandedId] = useState<string | null>(null)
 
   const fetchEnvironments = useCallback(async () => {
     setError('')
@@ -112,31 +115,64 @@ export default function EnvironmentsPage() {
                 </TableCell>
               </TableRow>
             ) : (
-              environments.map((env) => (
-                <TableRow key={env.id}>
-                  <TableCell className="font-medium">{env.name}</TableCell>
-                  <TableCell className="text-muted-foreground">
-                    {env.template_name || '—'}
-                  </TableCell>
-                  <TableCell>
-                    <EnvironmentStatusBadge status={env.status} />
-                  </TableCell>
-                  <TableCell>
-                    {env.created_by === user?.id
-                      ? 'You'
-                      : env.created_by_name}
-                  </TableCell>
-                  <TableCell>{formatDate(env.created_at)}</TableCell>
-                  <TableCell>
-                    <EnvironmentActions
-                      environment={env}
-                      currentUserId={user?.id ?? ''}
-                      isAdmin={user?.role === 'admin'}
-                      onRefresh={fetchEnvironments}
-                    />
-                  </TableCell>
-                </TableRow>
-              ))
+              environments.map((env) => {
+                const hasOutputs = !!env.last_applied_at
+                const isExpanded = expandedId === env.id
+                return (
+                  <Fragment key={env.id}>
+                    <TableRow
+                      className={cn(
+                        hasOutputs && 'cursor-pointer hover:bg-muted/50',
+                      )}
+                      onClick={() =>
+                        hasOutputs &&
+                        setExpandedId(isExpanded ? null : env.id)
+                      }
+                    >
+                      <TableCell className="font-medium">
+                        <span className="flex items-center gap-1">
+                          {hasOutputs && (
+                            <ChevronRight
+                              className={cn(
+                                'h-4 w-4 shrink-0 transition-transform',
+                                isExpanded && 'rotate-90',
+                              )}
+                            />
+                          )}
+                          {env.name}
+                        </span>
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">
+                        {env.template_name || '—'}
+                      </TableCell>
+                      <TableCell>
+                        <EnvironmentStatusBadge status={env.status} />
+                      </TableCell>
+                      <TableCell>
+                        {env.created_by === user?.id
+                          ? 'You'
+                          : env.created_by_name}
+                      </TableCell>
+                      <TableCell>{formatDate(env.created_at)}</TableCell>
+                      <TableCell>
+                        <EnvironmentActions
+                          environment={env}
+                          currentUserId={user?.id ?? ''}
+                          isAdmin={user?.role === 'admin'}
+                          onRefresh={fetchEnvironments}
+                        />
+                      </TableCell>
+                    </TableRow>
+                    {isExpanded && (
+                      <TableRow>
+                        <TableCell colSpan={6} className="bg-muted/30 p-4">
+                          <EnvironmentOutputs environmentId={env.id} />
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </Fragment>
+                )
+              })
             )}
           </TableBody>
         </Table>
