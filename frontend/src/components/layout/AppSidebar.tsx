@@ -1,4 +1,4 @@
-import { Home, LayoutTemplate, FolderOpen, Server, Users, Shield, LogOut, ChevronsUpDown } from 'lucide-react'
+import { Home, LayoutTemplate, Server, Users, Shield, LogOut, ChevronsUpDown } from 'lucide-react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import {
   Sidebar,
