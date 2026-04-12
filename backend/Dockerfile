@@ -24,7 +24,7 @@ RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o migrate ./cmd/mig
 FROM alpine:latest
 
 # Install ca-certificates for HTTPS requests and runtime dependencies
-RUN apk --no-cache add ca-certificates curl sqlite unzip
+RUN apk --no-cache add ca-certificates curl sqlite unzip jq
 # Install Terraform from HashiCorp releases
 RUN ARCH=$(uname -m) && \
     if [ "$ARCH" = "x86_64" ]; then ARCH="amd64"; elif [ "$ARCH" = "aarch64" ]; then ARCH="arm64"; fi && \
