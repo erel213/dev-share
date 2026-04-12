@@ -8,9 +8,6 @@ services:
       - PORT=8080
       - DB_FILE_PATH=/data/devshare.db
       - MIGRATIONS_PATH=./internal/infra/migrations/sqlite
-      - JWT_SECRET=${JWT_SECRET}
-      - ENCRYPTION_KEY=${ENCRYPTION_KEY}
-      - ADMIN_INIT_TOKEN=${ADMIN_INIT_TOKEN:-}
       - AWS_SECRET_ID=${AWS_SECRET_ID:-}
       - AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION:-}
       - AZURE_KEYVAULT_NAME=${AZURE_KEYVAULT_NAME:-}
