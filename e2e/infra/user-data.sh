@@ -27,3 +27,14 @@ usermod -aG docker ubuntu
 
 # 5. Install git
 apt-get install -y git
+
+# 7. Write secret manager config for Dev-Share
+# These are NOT actual secrets — just pointers to the AWS Secrets Manager
+# secret name and region. The actual secrets are fetched at container
+# startup via the Secrets Manager API (see backend/entrypoint.sh).
+# Values are injected by Terraform templatefile().
+cat > /etc/devshare-secrets.env <<'SECRETS_EOF'
+AWS_SECRET_ID=${aws_secret_id}
+AWS_DEFAULT_REGION=${aws_region}
+SECRETS_EOF
+chmod 600 /etc/devshare-secrets.env
