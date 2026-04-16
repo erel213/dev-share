@@ -20,6 +20,13 @@ fail() { print_error "$1"; exit 1; }
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 cd "$SCRIPT_DIR"
 
+GENERATE_ENV=false
+for arg in "$@"; do
+  case "$arg" in
+    --generate-env) GENERATE_ENV=true ;;
+  esac
+done
+
 cleanup() {
   if [ -n "$COMPOSE_UP" ]; then
     echo ""
@@ -57,7 +64,13 @@ print_ok "curl"
 
 print_step "Setting up environment"
 
-if [ ! -f .env ]; then
+if [ -f .env ]; then
+  if [ "$GENERATE_ENV" = "true" ]; then
+    print_warn ".env already exists, skipping generation"
+  else
+    print_ok "Using existing .env"
+  fi
+elif [ "$GENERATE_ENV" = "true" ]; then
   cp .env.example .env
   JWT_SECRET=$(openssl rand -base64 32 2>/dev/null || head -c 32 /dev/urandom | base64)
   ENCRYPTION_KEY=$(openssl rand -hex 32 2>/dev/null || head -c 32 /dev/urandom | xxd -p -c 32)
@@ -70,7 +83,8 @@ if [ ! -f .env ]; then
   fi
   print_ok ".env created with generated secrets"
 else
-  print_warn ".env already exists, skipping"
+  print_warn "No .env file found — secrets will be fetched from cloud secret manager at startup"
+  print_warn "Use --generate-env to generate a local .env with random secrets"
 fi
 
 # ── 3. Build and start containers ────────────────────────────────────

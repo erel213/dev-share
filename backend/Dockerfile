@@ -24,7 +24,13 @@ RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o migrate ./cmd/mig
 FROM alpine:latest
 
 # Install ca-certificates for HTTPS requests and runtime dependencies
-RUN apk --no-cache add ca-certificates curl sqlite unzip
+RUN apk --no-cache add ca-certificates curl sqlite unzip jq
+# Install AWS CLI V2
+RUN curl -fsSL "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o /tmp/awscliv2.zip && \
+unzip -q /tmp/awscliv2.zip -d /tmp && \
+/tmp/aws/install && \
+rm -rf /tmp/aws /tmp/awscliv2.zip
+
 # Install Terraform from HashiCorp releases
 RUN ARCH=$(uname -m) && \
     if [ "$ARCH" = "x86_64" ]; then ARCH="amd64"; elif [ "$ARCH" = "aarch64" ]; then ARCH="arm64"; fi && \
