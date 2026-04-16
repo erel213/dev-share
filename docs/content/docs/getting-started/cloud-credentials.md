@@ -99,6 +99,10 @@ services:
 `network_mode: host` removes container network isolation. Only use this in trusted environments such as private cloud VMs.
 {{< /callout >}}
 
+## Application secrets vs. cloud credentials
+
+This page covers **cloud provider credentials** used by Terraform to provision infrastructure. If you want to manage Dev-Share's own application secrets (`JWT_SECRET`, `ENCRYPTION_KEY`) through a cloud secret manager instead of a local `.env` file, see [Manage application secrets]({{< ref "docs/guides/secrets-management" >}}).
+
 ## Security best practices
 
 - **Never bake credentials into the Docker image.** Use mounts or environment variables at runtime.

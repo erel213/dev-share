@@ -25,7 +25,7 @@ cd dev-share
 ## Run the setup script
 
 ```bash
-./setup.sh
+./setup.sh --generate-env
 ```
 
 The script performs the following steps automatically:
@@ -35,6 +35,10 @@ The script performs the following steps automatically:
 3. Builds and starts the backend and frontend containers
 4. Waits for the backend health check to pass
 5. Opens the setup wizard in your browser
+
+{{< callout type="info" >}}
+The `--generate-env` flag tells the script to create a `.env` file with random secrets. Without it, the script assumes secrets are provided by a cloud secret manager. See [Manage application secrets]({{< ref "docs/guides/secrets-management" >}}) for cloud-based options.
+{{< /callout >}}
 
 ## Complete the setup wizard
 
@@ -78,7 +82,7 @@ To wipe the database and start fresh:
 
 ```bash
 ./clean_db.sh
-./setup.sh
+./setup.sh --generate-env
 ```
 
 {{< callout type="warning" >}}
@@ -87,5 +91,6 @@ This deletes all data including users, workspaces, templates, and environments.
 
 ## Next steps
 
+- [Manage application secrets]({{< ref "docs/guides/secrets-management" >}}) to use a cloud secret manager instead of local `.env`
 - [Configure cloud credentials]({{< ref "docs/getting-started/cloud-credentials" >}}) to provision infrastructure with Terraform
 - [Environment variables reference]({{< ref "docs/reference/environment-variables" >}}) for all configuration options
