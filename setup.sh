@@ -124,6 +124,9 @@ if [ $ATTEMPT -gt $MAX_ATTEMPTS ]; then
   exit 1
 fi
 
+print_step "Backend startup logs"
+docker compose logs backend
+
 # ── 5. Open browser ─────────────────────────────────────────────────
 
 APP_URL="http://localhost:${APP_PORT}/setup"

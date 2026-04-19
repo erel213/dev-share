@@ -6,14 +6,14 @@ set -e
 if [ -z "$JWT_SECRET" ]; then
 
   if [ -n "$AWS_SECRET_ID" ]; then
-    echo "Fetching secrets from AWS Secrets Manager..."
+    echo "Fetching secrets from AWS Secrets Manager (AWS_SECRET_ID=$AWS_SECRET_ID)..."
     SECRET_JSON=$(aws secretsmanager get-secret-value \
       --secret-id "$AWS_SECRET_ID" \
       --query SecretString \
       --output text)
 
   elif [ -n "$AZURE_KEYVAULT_NAME" ]; then
-    echo "Fetching secrets from Azure Key Vault..."
+    echo "Fetching secrets from Azure Key Vault (AZURE_KEYVAULT_NAME=$AZURE_KEYVAULT_NAME, names=jwt-secret,encryption-key,admin-init-token)..."
     SECRET_JSON=$(jq -n \
       --arg jwt "$(az keyvault secret show --vault-name "$AZURE_KEYVAULT_NAME" --name jwt-secret --query value -o tsv)" \
       --arg enc "$(az keyvault secret show --vault-name "$AZURE_KEYVAULT_NAME" --name encryption-key --query value -o tsv)" \
@@ -21,10 +21,12 @@ if [ -z "$JWT_SECRET" ]; then
       '{JWT_SECRET: $jwt, ENCRYPTION_KEY: $enc, ADMIN_INIT_TOKEN: $admin}')
 
   elif [ -n "$GCP_SECRET_NAME" ]; then
-    echo "Fetching secrets from GCP Secret Manager..."
+    echo "Fetching secrets from GCP Secret Manager (GCP_SECRET_NAME=$GCP_SECRET_NAME)..."
     SECRET_JSON=$(gcloud secrets versions access latest \
       --secret="$GCP_SECRET_NAME" \
       --format="get(payload.data)" | base64 -d)
+  else
+    echo "No secret manager ID set (AWS_SECRET_ID / AZURE_KEYVAULT_NAME / GCP_SECRET_NAME); skipping secret fetch."
   fi
 
   if [ -n "$SECRET_JSON" ]; then
