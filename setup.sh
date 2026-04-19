@@ -84,6 +84,7 @@ elif [ "$GENERATE_ENV" = "true" ]; then
   print_ok ".env created with generated secrets"
 else
   print_warn "No .env file found — secrets will be fetched from cloud secret manager at startup"
+  export AWS_SECRET_ID="devshare/app-secrets" # Default path for AWS Secrets Manager
   print_warn "Use --generate-env to generate a local .env with random secrets"
 fi
 
