@@ -28,13 +28,19 @@ usermod -aG docker ubuntu
 # 5. Install git
 apt-get install -y git
 
-# 7. Write secret manager config for Dev-Share
-# These are NOT actual secrets — just pointers to the AWS Secrets Manager
-# secret name and region. The actual secrets are fetched at container
-# startup via the Secrets Manager API (see backend/entrypoint.sh).
-# Values are injected by Terraform templatefile().
-cat > /etc/devshare-secrets.env <<'SECRETS_EOF'
-AWS_SECRET_ID=${aws_secret_id}
-AWS_DEFAULT_REGION=${aws_region}
-SECRETS_EOF
-chmod 644 /etc/devshare-secrets.env
+# 6. Install AWS CLI v2
+apt-get install -y unzip
+arch=$(uname -m)
+case "$arch" in
+  x86_64) awscli_url="https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" ;;
+  aarch64) awscli_url="https://awscli.amazonaws.com/awscli-exe-linux-aarch64.zip" ;;
+  *) echo "Unsupported architecture: $arch" >&2; exit 1 ;;
+esac
+tmpdir=$(mktemp -d)
+curl -fsSL "$awscli_url" -o "$tmpdir/awscliv2.zip"
+unzip -q "$tmpdir/awscliv2.zip" -d "$tmpdir"
+"$tmpdir/aws/install"
+rm -rf "$tmpdir"
+
+export AWS_SECRET_ID=${aws_secret_id}
+export AWS_DEFAULT_REGION=${aws_region}
