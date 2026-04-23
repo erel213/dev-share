@@ -23,13 +23,11 @@ RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o migrate ./cmd/mig
 # Final stage
 FROM alpine:latest
 
-# Install ca-certificates for HTTPS requests and runtime dependencies
-RUN apk --no-cache add ca-certificates curl sqlite unzip jq
-# Install AWS CLI V2
-RUN curl -fsSL "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o /tmp/awscliv2.zip && \
-unzip -q /tmp/awscliv2.zip -d /tmp && \
-/tmp/aws/install && \
-rm -rf /tmp/aws /tmp/awscliv2.zip
+# Install ca-certificates for HTTPS requests and runtime dependencies.
+# Secrets are fetched on the host and mounted into the container via tmpfs
+# (see scripts/fetch-secrets.sh + docker-compose.cloud-secrets.yml), so no
+# cloud CLI is needed at runtime.
+RUN apk --no-cache add ca-certificates curl sqlite unzip
 
 # Install Terraform from HashiCorp releases
 RUN ARCH=$(uname -m) && \

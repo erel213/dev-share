@@ -1,4 +1,4 @@
-# Docker Compose Override — Cloud Provider Credentials
+# Docker Compose Override — Cloud-related customization
 #
 # Copy this file to docker-compose.override.yml and uncomment the sections
 # you need. Docker Compose auto-merges the override with docker-compose.yml.
@@ -6,17 +6,44 @@
 #   cp docker-compose.override.example.yml docker-compose.override.yml
 #
 # docker-compose.override.yml is gitignored to prevent accidental credential commits.
+# Each OPTION below is independent — enable only what your deployment needs.
 
 services:
   backend:
 
     # =========================================================================
-    # OPTION A: Environment Variable Passthrough
+    # OPTION A: Application secrets from a cloud secret manager (tmpfs-backed)
+    # =========================================================================
+    # Delivers JWT_SECRET / ENCRYPTION_KEY / ADMIN_INIT_TOKEN to the container
+    # as read-only files, so they never appear in `docker inspect` or
+    # /proc/<pid>/environ.
+    #
+    # Requires: run scripts/fetch-secrets.sh on the host first (setup.sh does
+    # this automatically when AWS_SECRET_ID / AZURE_KEYVAULT_NAME / GCP_SECRET_NAME
+    # is exported). The script writes to ${SECRETS_DIR:-/dev/shm/devshare-secrets}.
+    #
+    # WARNING: if these mounts are uncommented, compose will fail to start
+    # unless the three source files exist. Only enable when using the
+    # cloud-secret flow; leave commented when using a local .env.
+
+    # environment:
+      # - JWT_SECRET_FILE=/run/secrets/jwt_secret
+      # - ENCRYPTION_KEY_FILE=/run/secrets/encryption_key
+      # - ADMIN_INIT_TOKEN_FILE=/run/secrets/admin_init_token
+    # secrets:
+      # - jwt_secret
+      # - encryption_key
+      # - admin_init_token
+
+    # =========================================================================
+    # OPTION B: Environment Variable Passthrough (Terraform provider creds)
     # =========================================================================
     # Listing a variable without "=value" passes the host's current value.
     # Set these on the host (or in .env) before running docker compose up.
+    # Safe to leave uncommented when unset — compose treats missing host vars
+    # as empty strings.
 
-    environment:
+    # environment:
 
       # --- AWS ---
       # - AWS_ACCESS_KEY_ID
@@ -35,7 +62,7 @@ services:
       # - ARM_SUBSCRIPTION_ID
 
     # =========================================================================
-    # OPTION B: Credential File Mounts (read-only)
+    # OPTION C: Credential File Mounts (read-only)
     # =========================================================================
     # Mount host credential directories into the container. Use this if you
     # authenticate via CLI tools (aws configure, gcloud auth, az login).
@@ -55,7 +82,7 @@ services:
       # - /path/to/service-account.json:/root/.config/gcloud/sa-key.json:ro
 
     # =========================================================================
-    # OPTION C: Instance Identity / Managed Identity (cloud-hosted)
+    # OPTION D: Instance Identity / Managed Identity (cloud-hosted)
     # =========================================================================
     # On EC2 (IAM role), GCE (service account), or Azure VM (managed identity),
     # the metadata endpoint at 169.254.169.254 provides credentials automatically.
@@ -65,3 +92,15 @@ services:
     # Only use this in trusted environments (e.g., private cloud VMs).
 
     # network_mode: host
+
+# =========================================================================
+# Top-level secrets block — required when OPTION A is enabled above.
+# SECRETS_DIR defaults to /dev/shm/devshare-secrets (set by scripts/fetch-secrets.sh).
+# =========================================================================
+# secrets:
+  # jwt_secret:
+    # file: ${SECRETS_DIR:-/dev/shm/devshare-secrets}/jwt_secret
+  # encryption_key:
+    # file: ${SECRETS_DIR:-/dev/shm/devshare-secrets}/encryption_key
+  # admin_init_token:
+    # file: ${SECRETS_DIR:-/dev/shm/devshare-secrets}/admin_init_token

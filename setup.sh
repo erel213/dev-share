@@ -33,6 +33,10 @@ cleanup() {
     print_step "Stopping Dev-Share..."
     docker compose down
   fi
+  if [ -n "${SECRETS_DIR:-}" ] && [ -d "$SECRETS_DIR" ]; then
+    shred -u "$SECRETS_DIR"/* 2>/dev/null || rm -f "$SECRETS_DIR"/*
+    rmdir "$SECRETS_DIR" 2>/dev/null || true
+  fi
 }
 trap cleanup EXIT
 
@@ -83,9 +87,17 @@ elif [ "$GENERATE_ENV" = "true" ]; then
   fi
   print_ok ".env created with generated secrets"
 else
-  print_warn "No .env file found — secrets will be fetched from cloud secret manager at startup"
-  export AWS_SECRET_ID="devshare/app-secrets" # Default path for AWS Secrets Manager
-  print_warn "Use --generate-env to generate a local .env with random secrets"
+  if [ -n "${AWS_SECRET_ID:-}" ] || [ -n "${AZURE_KEYVAULT_NAME:-}" ] || [ -n "${GCP_SECRET_NAME:-}" ]; then
+    if [ ! -f docker-compose.override.yml ] || ! grep -q '^[^#]*JWT_SECRET_FILE' docker-compose.override.yml; then
+      fail "Cloud-secret flow requires docker-compose.override.yml with OPTION A uncommented. Run: cp docker-compose.override.example.yml docker-compose.override.yml && edit to uncomment section A (and the top-level secrets: block)."
+    fi
+    print_warn "No .env file found — fetching secrets from cloud secret manager on the host"
+    eval "$(./scripts/fetch-secrets.sh)"
+    export SECRETS_DIR
+    print_ok "Secrets written to tmpfs at $SECRETS_DIR (mounted into container as /run/secrets/*)"
+  else
+    fail "No .env found and no cloud secret manager ID set. Either run './setup.sh --generate-env' or export one of AWS_SECRET_ID / AZURE_KEYVAULT_NAME / GCP_SECRET_NAME."
+  fi
 fi
 
 # ── 3. Build and start containers ────────────────────────────────────

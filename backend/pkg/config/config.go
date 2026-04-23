@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 
 	"github.com/go-playground/validator/v10"
 )
@@ -42,10 +43,12 @@ type Config struct {
 
 // Load reads configuration from environment variables and returns a validated Config.
 func Load() (*Config, error) {
-	encryptionKeyHex := getEnv("ENCRYPTION_KEY", "")
+	encryptionKeyHex, err := getEnvOrFile("ENCRYPTION_KEY", "")
+	if err != nil {
+		return nil, err
+	}
 	var encryptionKey []byte
 	if encryptionKeyHex != "" {
-		var err error
 		encryptionKey, err = hex.DecodeString(encryptionKeyHex)
 		if err != nil {
 			return nil, fmt.Errorf("ENCRYPTION_KEY must be a valid hex string: %w", err)
@@ -57,12 +60,21 @@ func Load() (*Config, error) {
 		return nil, fmt.Errorf("BODY_LIMIT_BYTES must be a valid integer: %w", err)
 	}
 
+	jwtSecret, err := getEnvOrFile("JWT_SECRET", "")
+	if err != nil {
+		return nil, err
+	}
+	adminInitToken, err := getEnvOrFile("ADMIN_INIT_TOKEN", "")
+	if err != nil {
+		return nil, err
+	}
+
 	cfg := &Config{
 		Port:                getEnv("PORT", "8080"),
 		BodyLimitBytes:      bodyLimit,
 		DBFilePath:          getEnv("DB_FILE_PATH", "./devshare.db"),
-		JWTSecret:           getEnv("JWT_SECRET", ""),
-		AdminInitToken:      getEnv("ADMIN_INIT_TOKEN", ""),
+		JWTSecret:           jwtSecret,
+		AdminInitToken:      adminInitToken,
 		EncryptionKey:       encryptionKey,
 		TemplateStoragePath: getEnv("TEMPLATE_STORAGE_PATH", "./template_storage"),
 		EnvExecutionPath:    getEnv("ENV_EXECUTION_PATH", "./env_executions"),
@@ -86,4 +98,20 @@ func getEnv(key, defaultValue string) string {
 		return defaultValue
 	}
 	return value
+}
+
+// getEnvOrFile reads a secret from either ${key}_FILE (a file path, whose
+// contents are read and whitespace-trimmed) or ${key} (a literal value). The
+// _FILE form takes precedence when set — it's how Docker secrets, tmpfs-backed
+// mounts, and the Postgres/MySQL/Vault ecosystems deliver secrets without
+// exposing them via env vars visible to `docker inspect` or /proc/<pid>/environ.
+func getEnvOrFile(key, defaultValue string) (string, error) {
+	if path := os.Getenv(key + "_FILE"); path != "" {
+		data, err := os.ReadFile(path)
+		if err != nil {
+			return "", fmt.Errorf("%s_FILE: %w", key, err)
+		}
+		return strings.TrimSpace(string(data)), nil
+	}
+	return getEnv(key, defaultValue), nil
 }

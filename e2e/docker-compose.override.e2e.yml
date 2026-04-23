@@ -1,0 +1,25 @@
+# E2E docker-compose override — tmpfs-backed cloud secrets (OPTION A).
+#
+# Used by e2e/deploy.sh: copied onto the EC2 host as docker-compose.override.yml
+# before setup.sh runs. Setup.sh detects AWS_SECRET_ID (sourced from
+# /etc/devshare-secrets.env, written by terraform user-data) and invokes
+# scripts/fetch-secrets.sh, which populates ${SECRETS_DIR}.
+
+services:
+  backend:
+    environment:
+      - JWT_SECRET_FILE=/run/secrets/jwt_secret
+      - ENCRYPTION_KEY_FILE=/run/secrets/encryption_key
+      - ADMIN_INIT_TOKEN_FILE=/run/secrets/admin_init_token
+    secrets:
+      - jwt_secret
+      - encryption_key
+      - admin_init_token
+
+secrets:
+  jwt_secret:
+    file: ${SECRETS_DIR:-/dev/shm/devshare-secrets}/jwt_secret
+  encryption_key:
+    file: ${SECRETS_DIR:-/dev/shm/devshare-secrets}/encryption_key
+  admin_init_token:
+    file: ${SECRETS_DIR:-/dev/shm/devshare-secrets}/admin_init_token

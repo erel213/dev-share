@@ -86,10 +86,13 @@ ok "Cloud-init completed"
 
 # ── Step 4: Clone repo and run setup ──────────────────────────────────
 log "Deploying dev-share on EC2"
+scp $SSH_OPTS "$SCRIPT_DIR/docker-compose.override.e2e.yml" "ubuntu@$EC2_IP:/tmp/docker-compose.override.yml"
 ssh $SSH_OPTS "ubuntu@$EC2_IP" bash <<EOF
   set -euo pipefail
   git clone $REPO_URL
   cd dev-share
+  cp /tmp/docker-compose.override.yml ./docker-compose.override.yml
+  set -a; . /etc/devshare-secrets.env; set +a
   ./setup.sh
 EOF
 ok "Dev-share deployed"
