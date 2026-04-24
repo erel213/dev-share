@@ -42,5 +42,9 @@ unzip -q "$tmpdir/awscliv2.zip" -d "$tmpdir"
 "$tmpdir/aws/install"
 rm -rf "$tmpdir"
 
+# 7. Persist AWS env vars for all future bash/zsh sessions
+cat > /etc/profile.d/aws-env.sh <<EOF
 export AWS_SECRET_ID=${aws_secret_id}
 export AWS_DEFAULT_REGION=${aws_region}
+EOF
+chmod 0644 /etc/profile.d/aws-env.sh

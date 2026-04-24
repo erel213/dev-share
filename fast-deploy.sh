@@ -45,13 +45,12 @@ ssh $SSH_OPTS "ubuntu@$EC2_IP" "cloud-init status --wait" 2>/dev/null
 scp $SSH_OPTS "$OVERRIDE_FILE" "ubuntu@$EC2_IP:/tmp/docker-compose.override.yml"
 
 # Source AWS_SECRET_ID + AWS_DEFAULT_REGION so setup.sh takes the cloud-secret path
-ssh $SSH_OPTS "ubuntu@$EC2_IP" bash <<EOF
+ssh $SSH_OPTS "ubuntu@$EC2_IP" bash -l <<EOF
   set -euo pipefail
   git clone $REPO_URL
   cd dev-share
   git checkout $BRANCH
   cp /tmp/docker-compose.override.yml ./docker-compose.override.yml
-  set -a; . /etc/devshare-secrets.env; set +a
   ./setup.sh
 EOF
 echo "Dev-share deployed"
