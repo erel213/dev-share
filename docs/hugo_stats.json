@@ -275,8 +275,12 @@
       "wrap"
     ],
     "ids": [
+      "1-store-your-secrets-in-a-cloud-secret-manager",
+      "2-enable-the-tmpfs-mount-in-the-compose-override",
+      "3-export-the-cloud-secret-id-and-run-setup",
       "TableOfContents",
       "ai-dropdown",
+      "alternative-local-env-quick-dev-fallback",
       "application-secrets-vs-cloud-credentials",
       "authentication",
       "authentication-1",
@@ -303,6 +307,7 @@
       "frontend",
       "gcp",
       "how-secret-resolution-works",
+      "how-the-cloud-secret-flow-works",
       "iam-permissions",
       "next-steps",
       "offcanvasNavMain",
@@ -320,8 +325,10 @@
       "prerequisites-1",
       "prerequisites-2",
       "query",
+      "recommended-tmpfs-file-mounted-secrets",
       "reset-the-database",
       "run-the-setup-script",
+      "running-compose-manually",
       "search-form",
       "searchModal",
       "searchModalLabel",
@@ -337,7 +344,8 @@
       "stop-and-restart",
       "toc",
       "useful-scripts",
-      "verify-the-installation"
+      "verify-the-installation",
+      "why-files-and-not-env-vars"
     ]
   }
 }
