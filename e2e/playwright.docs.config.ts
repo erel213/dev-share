@@ -2,6 +2,7 @@ import { defineConfig } from "@playwright/test";
 
 export default defineConfig({
   testDir: "./docs-capture",
+  globalSetup: "./docs-capture/global-setup.ts",
   fullyParallel: false,
   workers: 1,
   reporter: [["list"]],

@@ -48,4 +48,39 @@ test.describe("@docs dialogs", () => {
     ensureDir(path.dirname(outputFile));
     await page.screenshot({ path: outputFile });
   });
+
+  test("create environment dialog", async ({ page }) => {
+    await page.goto("/environments");
+    await page.waitForLoadState("networkidle");
+    await page.getByRole("button", { name: "New Environment" }).click();
+    await page
+      .locator("[role='combobox'], select")
+      .first()
+      .waitFor({ state: "visible" });
+
+    const outputFile = path.join(
+      DOCS_IMAGE_ROOT,
+      "guides/create-environment-dialog.png"
+    );
+    ensureDir(path.dirname(outputFile));
+    await page.screenshot({ path: outputFile });
+  });
+
+  test("manage members dialog", async ({ page }) => {
+    await page.goto("/groups");
+    await page.waitForLoadState("networkidle");
+    await page
+      .locator("table tbody tr")
+      .first()
+      .getByRole("button", { name: /members/i })
+      .click();
+    await page.waitForLoadState("networkidle");
+
+    const outputFile = path.join(
+      DOCS_IMAGE_ROOT,
+      "guides/manage-members-dialog.png"
+    );
+    ensureDir(path.dirname(outputFile));
+    await page.screenshot({ path: outputFile });
+  });
 });

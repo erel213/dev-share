@@ -20,7 +20,7 @@ export function ensureDir(dirPath: string): void {
 
 /**
  * Log in to the app using the standard auth flow.
- * Navigates to /login, fills credentials, and waits for redirect to /.
+ * Navigates to /login, fills credentials, and waits for the app to leave /login.
  */
 export async function login(
   page: Page,
@@ -28,10 +28,17 @@ export async function login(
   password: string = DEFAULT_PASSWORD
 ): Promise<void> {
   await page.goto("/login");
+  await page.waitForLoadState("networkidle");
   await page.locator("#email").fill(email);
   await page.locator("#password").fill(password);
   await page.getByRole("button", { name: "Log in" }).click();
-  await page.waitForURL("/", { timeout: 10000 });
+  // Wait until the URL is no longer /login — the app may land on / or redirect
+  // through ProtectedRoute's async status check before settling on /.
+  await page.waitForURL((url) => !url.pathname.startsWith("/login"), {
+    timeout: 15000,
+  });
+  // If the app is still loading (ProtectedRoute skeleton), wait for networkidle.
+  await page.waitForLoadState("networkidle");
 }
 
 export interface ScreenshotPageOptions {

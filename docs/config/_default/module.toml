@@ -98,3 +98,9 @@
 [[mounts]]
   source = "static"
   target = "static"
+
+# Mount static into assets so the @thulite/images render hook can process
+# images stored in static/images/ as Hugo resources.
+[[mounts]]
+  source = "static"
+  target = "assets"
