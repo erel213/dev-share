@@ -75,6 +75,7 @@ if [ -f .env ]; then
     print_ok "Using existing .env"
   fi
 elif [ "$GENERATE_ENV" = "true" ]; then
+  print_ok "Generating .env with random secrets"
   cp .env.example .env
   JWT_SECRET=$(openssl rand -base64 32 2>/dev/null || head -c 32 /dev/urandom | base64)
   ENCRYPTION_KEY=$(openssl rand -hex 32 2>/dev/null || head -c 32 /dev/urandom | xxd -p -c 32)

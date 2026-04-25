@@ -11,6 +11,9 @@ services:
       - TEMPLATE_STORAGE_PATH=/data/template_storage
       - ENV_EXECUTION_PATH=/data/env_executions
       - TF_PLUGIN_CACHE_DIR=/data/tf_plugin_cache
+    env_file:
+      - .env
+      required: true
     volumes:
       - devshare-data:/data
     restart: unless-stopped
