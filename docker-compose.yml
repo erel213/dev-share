@@ -12,8 +12,8 @@ services:
       - ENV_EXECUTION_PATH=/data/env_executions
       - TF_PLUGIN_CACHE_DIR=/data/tf_plugin_cache
     env_file:
-      - .env
-      required: true
+      - path: .env
+        required: false
     volumes:
       - devshare-data:/data
     restart: unless-stopped
