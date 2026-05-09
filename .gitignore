@@ -2,6 +2,7 @@
 *.db*
 *.env
 **/template_storage
+**/secrets
 backend/migrate
 backend/server
 **.terraform*
