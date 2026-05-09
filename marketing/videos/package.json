@@ -1,0 +1,27 @@
+{
+  "name": "dev-share-marketing-videos",
+  "private": true,
+  "scripts": {
+    "dev": "remotion studio",
+    "render:demo": "remotion render src/index.ts DevShareDemo out/dev-share-demo.mp4",
+    "render:walkthrough": "remotion render src/index.ts FeatureWalkthrough out/feature-walkthrough.mp4",
+    "render:social": "remotion render src/index.ts SocialClip out/social-clip.mp4"
+  },
+  "dependencies": {
+    "@remotion/cli": "^4.0.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "remotion": "^4.0.0",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "typescript": "~5.9.3"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild"
+    ]
+  }
+}

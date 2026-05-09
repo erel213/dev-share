@@ -6,7 +6,8 @@ import { request } from "@playwright/test";
  * Ensures the app is in a known state before any screenshot test runs:
  *   1. System is initialized (admin account + workspace exist)
  *   2. At least one template exists (needed for template-browser screenshot)
- *   3. At least one group exists (needed for manage-members-dialog screenshot)
+ *   3. Sample environments exist (needed for environments-table screenshot)
+ *   4. At least one group exists (needed for manage-members-dialog screenshot)
  *
  * Uses DOCS_BASE_URL (default: http://localhost:3000) — the same URL as the
  * browser tests, so Nginx/Vite proxy handles routing to the backend.
@@ -103,7 +104,43 @@ export default async function globalSetup() {
       console.log(`[docs-setup] ${templates.length} template(s) already exist, skipping.`);
     }
 
-    // ── 4. Seed a group if none exist ────────────────────────────────────
+    // ── 4. Seed environments if none exist ──────────────────────────────
+    const freshTemplatesRes = await api.get("/api/v1/templates");
+    const freshTemplates = await freshTemplatesRes.json();
+    const templateId = Array.isArray(freshTemplates) && freshTemplates[0]?.id;
+
+    const environmentsRes = await api.get("/api/v1/environments?scope=all");
+    const environments = await environmentsRes.json();
+
+    if (templateId && (!Array.isArray(environments) || environments.length === 0)) {
+      console.log("[docs-setup] No environments found — creating sample environments...");
+
+      const sampleEnvironments = [
+        { name: "staging-frontend", description: "Frontend staging environment" },
+        { name: "dev-api-gateway", description: "API gateway development" },
+        { name: "feature-auth-refactor", description: "Auth refactor feature branch" },
+      ];
+
+      for (const env of sampleEnvironments) {
+        const createEnvRes = await api.post("/api/v1/environments", {
+          data: { ...env, template_id: templateId },
+        });
+
+        if (!createEnvRes.ok()) {
+          throw new Error(
+            `[docs-setup] Environment creation failed (${createEnvRes.status()}): ${await createEnvRes.text()}`
+          );
+        }
+      }
+
+      console.log("[docs-setup] Sample environments created.");
+    } else {
+      console.log(
+        `[docs-setup] ${Array.isArray(environments) ? environments.length : 0} environment(s) already exist, skipping.`
+      );
+    }
+
+    // ── 5. Seed a group if none exist ────────────────────────────────────
     const groupsRes = await api.get("/api/v1/groups");
     const groups = await groupsRes.json();
 

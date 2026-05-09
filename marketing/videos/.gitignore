@@ -1,0 +1,11 @@
+out/
+node_modules/
+*.mp4
+*.webm
+*.mov
+public/screenshots/*
+public/recordings/*
+!public/screenshots/.gitkeep
+!public/recordings/.gitkeep
+!public/fonts/.gitkeep
+!public/music/.gitkeep

@@ -8,7 +8,9 @@
     "report": "playwright show-report",
     "docs:capture": "playwright test --config=playwright.docs.config.ts",
     "docs:capture:pages": "playwright test --config=playwright.docs.config.ts --grep '@docs pages'",
-    "docs:capture:debug": "playwright test --config=playwright.docs.config.ts --headed"
+    "docs:capture:debug": "playwright test --config=playwright.docs.config.ts --headed",
+    "docs:capture:marketing": "playwright test --config=playwright.docs.config.ts --grep '@marketing'",
+    "postdocs:capture:marketing": "cp ../docs/static/images/marketing/*.png ../marketing/videos/public/screenshots/ 2>/dev/null || true && cp ../docs/static/images/marketing/*.webm ../marketing/videos/public/recordings/ 2>/dev/null || true"
   },
   "devDependencies": {
     "@playwright/test": "^1.50.0"
