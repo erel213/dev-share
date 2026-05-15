@@ -271,6 +271,54 @@ const ProblemScene: React.FC = () => {
   );
 };
 
+// ── AI bottleneck scene (180 frames = 6s) ────────────────────────────────────
+
+const AI_BOTTLENECK_LINES: { text: string; offset: number; highlight: boolean }[] = [
+  { text: "AI now writes the code.", offset: 0, highlight: false },
+  { text: "Shipping still takes days.", offset: 50, highlight: false },
+  { text: "The bottleneck moved.", offset: 95, highlight: false },
+  { text: "Code → environment → feedback → repeat.", offset: 140, highlight: true },
+];
+
+const AiBottleneckScene: React.FC = () => {
+  const frame = useCurrentFrame();
+
+  return (
+    <AbsoluteFill
+      style={{
+        backgroundColor: COLORS.background,
+        alignItems: "center",
+        justifyContent: "center",
+        flexDirection: "column",
+        gap: 20,
+        padding: 120,
+      }}
+    >
+      <div style={{ marginBottom: 8 }}>
+        <ChapterLabel text="The new reality" frame={frame} />
+      </div>
+      {AI_BOTTLENECK_LINES.map(({ text, offset, highlight }, i) => (
+        <div
+          key={i}
+          style={{ opacity: fadeIn(frame - offset, 18), textAlign: "center" }}
+        >
+          <AnimatedText
+            text={text}
+            style={{
+              fontSize: highlight ? 38 : 26,
+              fontWeight: highlight ? 700 : 400,
+              color: highlight ? COLORS.foreground : COLORS.mutedForeground,
+              fontFamily: FONTS.sans,
+              textAlign: "center",
+              lineHeight: 1.3,
+            }}
+          />
+        </div>
+      ))}
+    </AbsoluteFill>
+  );
+};
+
 // ── Dashboard scene (150 frames = 5s) ────────────────────────────────────────
 
 const DashboardScene: React.FC = () => {
@@ -572,7 +620,7 @@ const OutroScene: React.FC = () => {
 };
 
 // ── Composition root ──────────────────────────────────────────────────────────
-// Total: 90 + 210 + 150 + 180 + 150 + 180 + 360 + 150 = 1470 frames
+// Total: 90 + 210 + 180 + 150 + 180 + 150 + 180 + 360 + 150 = 1650 frames
 
 export const DevShareDemo: React.FC<DevShareDemoProps> = ({
   showWorkflowVideo,
@@ -585,6 +633,9 @@ export const DevShareDemo: React.FC<DevShareDemoProps> = ({
       </Series.Sequence>
       <Series.Sequence durationInFrames={210} name="Problem">
         <ProblemScene />
+      </Series.Sequence>
+      <Series.Sequence durationInFrames={180} name="AiBottleneck">
+        <AiBottleneckScene />
       </Series.Sequence>
       <Series.Sequence durationInFrames={150} name="Dashboard">
         <DashboardScene />

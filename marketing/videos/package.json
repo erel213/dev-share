@@ -3,9 +3,7 @@
   "private": true,
   "scripts": {
     "dev": "remotion studio",
-    "render:demo": "remotion render src/index.ts DevShareDemo out/dev-share-demo.mp4",
-    "render:walkthrough": "remotion render src/index.ts FeatureWalkthrough out/feature-walkthrough.mp4",
-    "render:social": "remotion render src/index.ts SocialClip out/social-clip.mp4"
+    "render:demo": "remotion render src/index.ts DevShareDemo out/dev-share-demo.mp4"
   },
   "dependencies": {
     "@remotion/cli": "^4.0.0",
